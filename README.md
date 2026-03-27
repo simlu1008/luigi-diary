@@ -112,12 +112,31 @@ Optional kannst du Variablen setzen:
 
 - `PORT` (Default: `3000`)
 - `DATA_FILE` (Default: `./data/events.json`)
+- `APP_USERNAME` und `APP_PASSWORD` (optional, aktiviert Passwortschutz per Basic Auth)
 
 Beispiel:
 
 ```bash
 cp .env.example .env
 ```
+
+Beispiel für Passwortschutz in `.env`:
+
+```bash
+APP_USERNAME=luigi
+APP_PASSWORD=dein_starkes_passwort
+```
+
+Wenn beide Variablen gesetzt sind, schützt die App alle Seiten und API-Endpunkte per Basic Auth. Nur `GET /api/health` bleibt offen, damit Deploy-Healthchecks weiter funktionieren.
+
+### Passwortschutz auf Render
+
+In Render unter `Environment` zusätzlich setzen:
+
+- `APP_USERNAME`
+- `APP_PASSWORD`
+
+Danach neu deployen. Beim Aufruf der App fragt der Browser dann nach Benutzername und Passwort.
 
 ## Deploy (außerhalb des Hauses erreichbar)
 

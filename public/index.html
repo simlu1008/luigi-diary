@@ -8,22 +8,33 @@
   </head>
   <body>
     <main class="container">
-      <h1>🐶 Luigi Diary</h1>
-      <p class="subtitle">Spaziergänge & Fütterung schnell vom Handy erfassen</p>
+      <div class="top-bar">
+        <div>
+          <h1 id="app-title">🐶 Luigi Diary</h1>
+          <p id="app-subtitle" class="subtitle">Spaziergänge & Fütterung schnell vom Handy erfassen</p>
+        </div>
+        <label class="lang-switch" for="language-select">
+          <span id="language-label">Sprache</span>
+          <select id="language-select" aria-label="Sprache wählen">
+            <option value="de">Deutsch</option>
+            <option value="en">English</option>
+          </select>
+        </label>
+      </div>
 
       <section class="card status-card">
-        <h2>Status</h2>
+        <h2 id="heading-status">Status</h2>
         <p id="walk-status">Lade Status…</p>
         <p id="sleep-status">Lade Schlafstatus…</p>
       </section>
 
       <section class="card actions">
-        <h2>Aktionen</h2>
+        <h2 id="heading-actions">Aktionen</h2>
         <button id="start-walk" class="btn btn-primary">🚶 Spaziergang starten</button>
 
         <div class="end-walk-block">
-          <label><input type="checkbox" id="pipi" /> Pipi gemacht</label>
-          <label><input type="checkbox" id="pupu" /> Pupu gemacht</label>
+          <label><input type="checkbox" id="pipi" /> <span id="label-pipi">Pipi gemacht</span></label>
+          <label><input type="checkbox" id="pupu" /> <span id="label-pupu">Pupu gemacht</span></label>
           <input type="text" id="walk-note" placeholder="Notiz (optional)" />
           <button id="end-walk" class="btn btn-warning">✅ Spaziergang beenden</button>
         </div>
@@ -37,66 +48,84 @@
       </section>
 
       <section class="card stats">
-        <h2>Heute</h2>
+        <h2 id="heading-today">Heute</h2>
         <div class="stats-grid">
-          <div><strong id="walks">0</strong><span>Spaziergänge</span></div>
-          <div><strong id="feeds">0</strong><span>Fütterungen</span></div>
-          <div><strong id="minutes">0</strong><span>Minuten draußen</span></div>
-          <div><strong id="sleep-hours">0</strong><span>Schlafstunden</span></div>
-          <div><strong id="sleep-sessions">0</strong><span>Schlaf-Sessions</span></div>
-          <div><strong id="pipi-count">0</strong><span>mit Pipi</span></div>
-          <div><strong id="pupu-count">0</strong><span>mit Pupu</span></div>
+          <div><strong id="walks">0</strong><span id="stat-walks-label">Spaziergänge</span></div>
+          <div><strong id="feeds">0</strong><span id="stat-feeds-label">Fütterungen</span></div>
+          <div><strong id="minutes">0</strong><span id="stat-minutes-label">Minuten draußen</span></div>
+          <div><strong id="sleep-hours">0</strong><span id="stat-sleep-hours-label">Schlafstunden</span></div>
+          <div><strong id="sleep-sessions">0</strong><span id="stat-sleep-sessions-label">Schlaf-Sessions</span></div>
+          <div><strong id="pipi-count">0</strong><span id="stat-pipi-label">mit Pipi</span></div>
+          <div><strong id="pupu-count">0</strong><span id="stat-pupu-label">mit Pupu</span></div>
         </div>
       </section>
 
       <section class="card">
-        <h2>Daten</h2>
-        <p class="timeline-subtitle">Alle Einträge bleiben gespeichert und können exportiert werden.</p>
-        <div class="export-actions">
-          <button id="backup-json" class="btn btn-primary">💾 Backup Snapshot (JSON)</button>
-          <button id="export-json" class="btn btn-dark">⬇️ Export JSON</button>
-          <button id="export-csv" class="btn btn-dark">⬇️ Export CSV</button>
+        <h2 id="heading-timeline">24h Zeitstrahl</h2>
+        <p id="timeline-subtitle" class="timeline-subtitle">Ein Blick auf heute: Dauer draußen, Füttern, Pipi & Pupu.</p>
+        <div id="timeline-track" class="timeline-track" aria-label="24h Zeitstrahl"></div>
+        <div class="timeline-axis" aria-hidden="true">
+          <span id="axis-0">00:00</span>
+          <span id="axis-6">06:00</span>
+          <span id="axis-12">12:00</span>
+          <span id="axis-18">18:00</span>
+          <span id="axis-24">24:00</span>
         </div>
-        <p id="backup-result" class="import-result" aria-live="polite"></p>
-        <div class="import-actions">
-          <input id="import-file" type="file" accept=".json,.csv" />
-          <div class="import-buttons">
-            <button id="import-append" class="btn btn-secondary">📥 Import anhängen</button>
-            <button id="import-replace" class="btn btn-danger">♻️ Import ersetzen</button>
-          </div>
-          <p class="timeline-subtitle">`Anhängen` ergänzt neue Einträge, `Ersetzen` überschreibt alles mit der Datei.</p>
-          <p id="import-result" class="import-result" aria-live="polite"></p>
+        <div class="timeline-legend">
+          <span><i class="legend-dot walk"></i> <span id="legend-walk">Spaziergang</span></span>
+          <span><i class="legend-dot sleep"></i> <span id="legend-sleep">Schlaf</span></span>
+          <span><i class="legend-dot feed"></i> <span id="legend-feed">Füttern</span></span>
+          <span><i class="legend-dot pipi"></i> <span id="legend-pipi">Pipi</span></span>
+          <span><i class="legend-dot pupu"></i> <span id="legend-pupu">Pupu</span></span>
+          <span><i class="legend-dot now"></i> <span id="legend-now">Jetzt</span></span>
         </div>
       </section>
 
       <section class="card">
-        <h2>Manuell nachtragen</h2>
-        <p class="timeline-subtitle">Für alte Daten (z. B. gestern) kannst du Einträge mit Uhrzeit nachtragen.</p>
+        <h2 id="heading-range">Zeitraum-Auswertung</h2>
+        <p id="range-subtitle" class="timeline-subtitle">Tagesvergleich als 24h-Zeitstrahl pro Tag.</p>
+        <div class="range-toggle">
+          <button id="range-7" class="toggle-btn active" type="button">7 Tage</button>
+          <button id="range-30" class="toggle-btn" type="button">30 Tage</button>
+        </div>
+        <div class="trend-grid" id="trend-grid">
+          <div><strong id="trend-avg-minutes">0</strong><span id="trend-avg-minutes-label">Ø Minuten/Tag</span></div>
+          <div><strong id="trend-avg-sleep-hours">0</strong><span id="trend-avg-sleep-hours-label">Ø Schlafstunden/Tag</span></div>
+          <div><strong id="trend-total-walks">0</strong><span id="trend-total-walks-label">Spaziergänge gesamt</span></div>
+          <div><strong id="trend-total-feeds">0</strong><span id="trend-total-feeds-label">Fütterungen gesamt</span></div>
+          <div><strong id="trend-active-days">0</strong><span id="trend-active-days-label">Tage mit Aktivität</span></div>
+        </div>
+        <div id="week-timelines" class="week-timelines"></div>
+      </section>
+
+      <section class="card">
+        <h2 id="heading-manual">Manuell nachtragen</h2>
+        <p id="manual-subtitle" class="timeline-subtitle">Für alte Daten (z. B. gestern) kannst du Einträge mit Uhrzeit nachtragen.</p>
         <div class="manual-grid">
           <label>
-            Typ
+            <span id="manual-label-type">Typ</span>
             <select id="manual-type">
-              <option value="walk">Spaziergang</option>
-              <option value="feed">Füttern</option>
-              <option value="sleep">Schlafen</option>
+              <option id="manual-type-walk" value="walk">Spaziergang</option>
+              <option id="manual-type-feed" value="feed">Füttern</option>
+              <option id="manual-type-sleep" value="sleep">Schlafen</option>
             </select>
           </label>
           <label>
-            Zeitpunkt (optional)
+            <span id="manual-label-created">Zeitpunkt (optional)</span>
             <input id="manual-created-at" type="datetime-local" />
           </label>
           <label>
-            Start (Walk/Sleep)
+            <span id="manual-label-start">Start (Walk/Sleep)</span>
             <input id="manual-start" type="datetime-local" />
           </label>
           <label>
-            Ende (Walk/Sleep)
+            <span id="manual-label-end">Ende (Walk/Sleep)</span>
             <input id="manual-end" type="datetime-local" />
           </label>
-          <label><input type="checkbox" id="manual-pipi" /> Pipi (nur Walk)</label>
-          <label><input type="checkbox" id="manual-pupu" /> Pupu (nur Walk)</label>
+          <label><input type="checkbox" id="manual-pipi" /> <span id="manual-label-pipi">Pipi (nur Walk)</span></label>
+          <label><input type="checkbox" id="manual-pupu" /> <span id="manual-label-pupu">Pupu (nur Walk)</span></label>
           <label>
-            Notiz
+            <span id="manual-label-note">Notiz</span>
             <input id="manual-note" type="text" placeholder="z. B. nachgetragen" />
           </label>
         </div>
@@ -106,46 +135,34 @@
       </section>
 
       <section class="card">
-        <h2>24h Zeitstrahl</h2>
-        <p class="timeline-subtitle">Ein Blick auf heute: Dauer draußen, Füttern, Pipi & Pupu.</p>
-        <div id="timeline-track" class="timeline-track" aria-label="24h Zeitstrahl"></div>
-        <div class="timeline-axis" aria-hidden="true">
-          <span>00:00</span>
-          <span>06:00</span>
-          <span>12:00</span>
-          <span>18:00</span>
-          <span>24:00</span>
-        </div>
-        <div class="timeline-legend">
-          <span><i class="legend-dot walk"></i> Spaziergang</span>
-          <span><i class="legend-dot sleep"></i> Schlaf</span>
-          <span><i class="legend-dot feed"></i> Füttern</span>
-          <span><i class="legend-dot pipi"></i> Pipi</span>
-          <span><i class="legend-dot pupu"></i> Pupu</span>
-          <span><i class="legend-dot now"></i> Jetzt</span>
-        </div>
-      </section>
-
-      <section class="card">
-        <h2>Zeitraum-Auswertung</h2>
-        <p class="timeline-subtitle">Tagesvergleich als 24h-Zeitstrahl pro Tag.</p>
-        <div class="range-toggle">
-          <button id="range-7" class="toggle-btn active" type="button">7 Tage</button>
-          <button id="range-30" class="toggle-btn" type="button">30 Tage</button>
-        </div>
-        <div class="trend-grid" id="trend-grid">
-          <div><strong id="trend-avg-minutes">0</strong><span>Ø Minuten/Tag</span></div>
-          <div><strong id="trend-avg-sleep-hours">0</strong><span>Ø Schlafstunden/Tag</span></div>
-          <div><strong id="trend-total-walks">0</strong><span>Spaziergänge gesamt</span></div>
-          <div><strong id="trend-total-feeds">0</strong><span>Fütterungen gesamt</span></div>
-          <div><strong id="trend-active-days">0</strong><span>Tage mit Aktivität</span></div>
-        </div>
-        <div id="week-timelines" class="week-timelines"></div>
-      </section>
-
-      <section class="card">
-        <h2>Letzte Einträge</h2>
+        <h2 id="heading-events">Letzte Einträge</h2>
         <ul id="events" class="events"></ul>
+      </section>
+
+      <section class="card">
+        <h2 id="heading-data">Daten</h2>
+        <p id="data-subtitle" class="timeline-subtitle">Alle Einträge bleiben gespeichert und können exportiert werden.</p>
+        <div class="export-actions">
+          <button id="backup-json" class="btn btn-primary">💾 Backup erstellen (JSON)</button>
+          <button id="export-json" class="btn btn-dark">⬇️ Export JSON</button>
+          <button id="export-csv" class="btn btn-dark">⬇️ Export CSV</button>
+        </div>
+        <p id="backup-result" class="import-result" aria-live="polite"></p>
+        <div class="delete-actions">
+          <button id="delete-last" class="btn btn-warning">↩️ Letzten Eintrag löschen</button>
+          <button id="delete-all" class="btn btn-danger">🗑️ Alle Daten löschen</button>
+        </div>
+        <p id="delete-hint" class="timeline-subtitle">Tipp: Vor dem Löschen zuerst ein Backup erstellen.</p>
+        <p id="delete-result" class="import-result" aria-live="polite"></p>
+        <div class="import-actions">
+          <input id="import-file" type="file" accept=".json,.csv" />
+          <div class="import-buttons">
+            <button id="import-append" class="btn btn-secondary">📥 Import anhängen</button>
+            <button id="import-replace" class="btn btn-danger">♻️ Import ersetzen</button>
+          </div>
+          <p id="import-hint" class="timeline-subtitle">`Anhängen` ergänzt neue Einträge, `Ersetzen` überschreibt alles mit der Datei.</p>
+          <p id="import-result" class="import-result" aria-live="polite"></p>
+        </div>
       </section>
     </main>
 

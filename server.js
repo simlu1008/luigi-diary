@@ -5,6 +5,13 @@ const path = require('node:path');
 const app = express();
 const port = Number(process.env.PORT || 3000);
 const dataFile = process.env.DATA_FILE || path.join(__dirname, 'data', 'events.json');
+const appUsername = process.env.APP_USERNAME || '';
+const appPassword = process.env.APP_PASSWORD || '';
+const isAuthEnabled = Boolean(appUsername && appPassword);
+
+if ((appUsername && !appPassword) || (!appUsername && appPassword)) {
+  console.warn('Auth ist nur aktiv, wenn APP_USERNAME und APP_PASSWORD beide gesetzt sind.');
+}
 
 function ensureDataFile() {
   const directory = path.dirname(dataFile);
@@ -209,7 +216,50 @@ function pushEvent(store, event) {
   return withId;
 }
 
+function parseBasicAuthHeader(headerValue) {
+  if (!headerValue || typeof headerValue !== 'string') return null;
+  const [scheme, encoded] = headerValue.split(' ');
+  if (!scheme || !encoded || scheme.toLowerCase() !== 'basic') return null;
+
+  try {
+    const decoded = Buffer.from(encoded, 'base64').toString('utf8');
+    const separatorIndex = decoded.indexOf(':');
+    if (separatorIndex < 0) return null;
+    return {
+      username: decoded.slice(0, separatorIndex),
+      password: decoded.slice(separatorIndex + 1),
+    };
+  } catch {
+    return null;
+  }
+}
+
+function isRequestAuthorized(req) {
+  const credentials = parseBasicAuthHeader(req.headers.authorization);
+  if (!credentials) return false;
+  return credentials.username === appUsername && credentials.password === appPassword;
+}
+
+function respondUnauthorized(req, res) {
+  res.setHeader('WWW-Authenticate', 'Basic realm="Luigi Diary"');
+  if (req.path.startsWith('/api/')) {
+    return res.status(401).json({ error: 'Nicht autorisiert.' });
+  }
+  return res.status(401).send('Nicht autorisiert.');
+}
+
 app.use(express.json());
+app.use((req, res, next) => {
+  if (!isAuthEnabled || req.path === '/api/health') {
+    return next();
+  }
+
+  if (isRequestAuthorized(req)) {
+    return next();
+  }
+
+  return respondUnauthorized(req, res);
+});
 app.use(express.static(path.join(__dirname, 'public')));
 
 app.get('/api/health', (_req, res) => {
@@ -520,6 +570,45 @@ app.get('/api/events', (req, res) => {
   const events = selectedEvents.map(serializeEvent);
 
   res.json(events);
+});
+
+app.delete('/api/events/last', (_req, res) => {
+  const store = readStore();
+
+  if (store.events.length === 0) {
+    return res.status(404).json({ error: 'Keine Einträge vorhanden.' });
+  }
+
+  let latestIndex = 0;
+  for (let index = 1; index < store.events.length; index += 1) {
+    if (store.events[index].id > store.events[latestIndex].id) {
+      latestIndex = index;
+    }
+  }
+
+  const [deletedEvent] = store.events.splice(latestIndex, 1);
+  const maxId = store.events.reduce((max, event) => Math.max(max, event.id), 0);
+  store.nextId = maxId + 1;
+  writeStore(store);
+
+  return res.json({
+    deleted: serializeEvent(deletedEvent),
+    remaining: store.events.length,
+  });
+});
+
+app.delete('/api/events', (_req, res) => {
+  const store = readStore();
+  const deletedCount = store.events.length;
+
+  store.events = [];
+  store.nextId = 1;
+  writeStore(store);
+
+  return res.json({
+    deletedCount,
+    remaining: 0,
+  });
 });
 
 app.get('/api/export/json', (_req, res) => {

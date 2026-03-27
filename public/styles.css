@@ -38,6 +38,29 @@ h1 {
   color: var(--muted);
 }
 
+.top-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.lang-switch {
+  display: grid;
+  gap: 4px;
+  min-width: 110px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.lang-switch select {
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-size: 14px;
+  background: #fff;
+}
+
 .card {
   background: var(--card);
   border: 1px solid var(--border);
@@ -86,6 +109,12 @@ h1 {
 }
 
 .export-actions {
+  display: grid;
+  gap: 10px;
+}
+
+.delete-actions {
+  margin-top: 10px;
   display: grid;
   gap: 10px;
 }
@@ -446,5 +475,16 @@ input[type='datetime-local'] {
 
   .manual-grid {
     grid-template-columns: repeat(2, minmax(180px, 1fr));
+  }
+}
+
+@media (max-width: 520px) {
+  .top-bar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .lang-switch {
+    max-width: 180px;
   }
 }

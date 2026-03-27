@@ -6,13 +6,379 @@ async function api(path, options = {}) {
 
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
-    throw new Error(data.error || 'Fehler bei API Anfrage');
+    throw new Error(translateServerError(data.error || t('genericApiError')));
   }
   return data;
 }
 
 const MINUTES_PER_DAY = 24 * 60;
 let currentRangeDays = 7;
+const LANGUAGE_STORAGE_KEY = 'luigi-language';
+const SUPPORTED_LANGUAGES = ['de', 'en'];
+let currentLanguage = 'de';
+
+const TRANSLATIONS = {
+  de: {
+    appTitle: '🐶 Luigi Diary',
+    appSubtitle: 'Spaziergänge & Fütterung schnell vom Handy erfassen',
+    languageLabel: 'Sprache',
+    languageAria: 'Sprache wählen',
+    headingStatus: 'Status',
+    headingActions: 'Aktionen',
+    headingToday: 'Heute',
+    headingTimeline: '24h Zeitstrahl',
+    headingRange: 'Zeitraum-Auswertung',
+    headingManual: 'Manuell nachtragen',
+    headingEvents: 'Letzte Einträge',
+    headingData: 'Daten',
+    labelPipi: 'Pipi gemacht',
+    labelPupu: 'Pupu gemacht',
+    walkNotePlaceholder: 'Notiz (optional)',
+    feedNotePlaceholder: 'Füttern-Notiz (z. B. 150g)',
+    sleepNotePlaceholder: 'Schlaf-Notiz (optional)',
+    buttonStartWalk: '🚶 Spaziergang starten',
+    buttonEndWalk: '✅ Spaziergang beenden',
+    buttonFeed: '🍽️ Gefüttert',
+    buttonStartSleep: '🌙 Schlafen gestartet',
+    buttonEndSleep: '⏰ Aufgestanden',
+    statWalksLabel: 'Spaziergänge',
+    statFeedsLabel: 'Fütterungen',
+    statMinutesLabel: 'Minuten draußen',
+    statSleepHoursLabel: 'Schlafstunden',
+    statSleepSessionsLabel: 'Schlaf-Sessions',
+    statPipiLabel: 'mit Pipi',
+    statPupuLabel: 'mit Pupu',
+    timelineSubtitle: 'Ein Blick auf heute: Dauer draußen, Füttern, Pipi & Pupu.',
+    legendWalk: 'Spaziergang',
+    legendSleep: 'Schlaf',
+    legendFeed: 'Füttern',
+    legendPipi: 'Pipi',
+    legendPupu: 'Pupu',
+    legendNow: 'Jetzt',
+    rangeSubtitle: 'Tagesvergleich als 24h-Zeitstrahl pro Tag.',
+    range7: '7 Tage',
+    range30: '30 Tage',
+    trendAvgMinutesLabel: 'Ø Minuten/Tag',
+    trendAvgSleepHoursLabel: 'Ø Schlafstunden/Tag',
+    trendTotalWalksLabel: 'Spaziergänge gesamt',
+    trendTotalFeedsLabel: 'Fütterungen gesamt',
+    trendActiveDaysLabel: 'Tage mit Aktivität',
+    manualSubtitle: 'Für alte Daten (z. B. gestern) kannst du Einträge mit Uhrzeit nachtragen.',
+    manualLabelType: 'Typ',
+    manualTypeWalk: 'Spaziergang',
+    manualTypeFeed: 'Füttern',
+    manualTypeSleep: 'Schlafen',
+    manualLabelCreated: 'Zeitpunkt (optional)',
+    manualLabelStart: 'Start (Walk/Sleep)',
+    manualLabelEnd: 'Ende (Walk/Sleep)',
+    manualLabelPipi: 'Pipi (nur Walk)',
+    manualLabelPupu: 'Pupu (nur Walk)',
+    manualLabelNote: 'Notiz',
+    manualNotePlaceholder: 'z. B. nachgetragen',
+    buttonManualSave: '➕ Eintrag speichern',
+    dataSubtitle: 'Alle Einträge bleiben gespeichert und können exportiert werden.',
+    buttonBackupJson: '💾 Backup erstellen (JSON)',
+    buttonExportJson: '⬇️ Export JSON',
+    buttonExportCsv: '⬇️ Export CSV',
+    buttonDeleteLast: '↩️ Letzten Eintrag löschen',
+    buttonDeleteAll: '🗑️ Alle Daten löschen',
+    deleteHint: 'Tipp: Vor dem Löschen zuerst ein Backup erstellen.',
+    buttonImportAppend: '📥 Import anhängen',
+    buttonImportReplace: '♻️ Import ersetzen',
+    importHint: '`Anhängen` ergänzt neue Einträge, `Ersetzen` überschreibt alles mit der Datei.',
+    statusLoadingWalk: 'Lade Status…',
+    statusLoadingSleep: 'Lade Schlafstatus…',
+    statusOpenWalk: 'Aktiver Spaziergang seit {time}',
+    statusNoWalk: 'Aktuell kein aktiver Spaziergang.',
+    statusOpenSleep: 'Aktiver Schlaf seit {time}',
+    statusNoSleep: 'Aktuell keine aktive Schlaf-Session.',
+    eventFeed: '🍽️ Füttern · {time}{note}',
+    eventSleep: '😴 Schlaf · {start} bis {end} · {hours} h{note}',
+    eventWalk: '🚶 Spaziergang · {start} · {minutes} min · {pipi}, {pupu}{note}',
+    notePrefix: ' · {note}',
+    pipiYes: 'Pipi',
+    pipiNo: 'kein Pipi',
+    pupuYes: 'Pupu',
+    pupuNo: 'kein Pupu',
+    markerWalk: 'Spaziergang {start} bis {end} ({minutes} min)',
+    markerSleep: 'Schlaf {start} bis {end} ({hours} h)',
+    markerPipi: 'Pipi · {time}',
+    markerPupu: 'Pupu · {time}',
+    markerFeed: 'Füttern · {time}{note}',
+    markerNow: 'Jetzt · {time}',
+    rangeSummary: '{walks} Spaziergänge · {minutes} min · {feeds} Fütterungen · {sleepHours} h Schlaf',
+    importSelectFile: 'Bitte zuerst eine Datei auswählen.',
+    importOnlyJsonCsv: 'Nur .json oder .csv werden unterstützt.',
+    importReadFailed: 'Datei konnte nicht gelesen werden (Format prüfen).',
+    importNoEvents: 'Keine importierbaren Events gefunden.',
+    importDone: 'Import fertig: {imported} importiert, {skipped} übersprungen, {total} gesamt.',
+    importFailed: 'Import fehlgeschlagen: {error}',
+    backupCreating: 'Erstelle Snapshot...',
+    downloadFailed: 'Download fehlgeschlagen',
+    backupSaved: 'Backup gespeichert: {fileName}',
+    backupFailed: 'Backup fehlgeschlagen: {error}',
+    manualNeedsRange: 'Bitte für diesen Typ Start und Ende ausfüllen.',
+    manualEndAfterStart: 'Ende muss nach dem Start liegen.',
+    manualSaved: 'Manueller Eintrag gespeichert.',
+    manualSaveFailed: 'Speichern fehlgeschlagen: {error}',
+    confirmDeleteLast: 'Wirklich den letzten Eintrag löschen?',
+    confirmDeleteAll: 'Wirklich ALLE Daten löschen? Dieser Schritt kann nicht rückgängig gemacht werden.',
+    confirmReplaceImport: 'Wirklich alle vorhandenen Daten durch die Importdatei ersetzen?',
+    deleteLastDone: 'Letzter Eintrag gelöscht. Noch {remaining} Einträge vorhanden.',
+    deleteAllDone: '{deletedCount} Einträge gelöscht. Daten sind jetzt leer.',
+    deleteFailed: 'Löschen fehlgeschlagen: {error}',
+    loadError: 'Fehler beim Laden: {error}',
+    genericApiError: 'Fehler bei API Anfrage',
+  },
+  en: {
+    appTitle: '🐶 Luigi Diary',
+    appSubtitle: 'Quickly track walks and feeding from your phone',
+    languageLabel: 'Language',
+    languageAria: 'Choose language',
+    headingStatus: 'Status',
+    headingActions: 'Actions',
+    headingToday: 'Today',
+    headingTimeline: '24h Timeline',
+    headingRange: 'Range Analytics',
+    headingManual: 'Manual Entry',
+    headingEvents: 'Recent Entries',
+    headingData: 'Data',
+    labelPipi: 'Pee done',
+    labelPupu: 'Poop done',
+    walkNotePlaceholder: 'Note (optional)',
+    feedNotePlaceholder: 'Feeding note (e.g. 150g)',
+    sleepNotePlaceholder: 'Sleep note (optional)',
+    buttonStartWalk: '🚶 Start walk',
+    buttonEndWalk: '✅ End walk',
+    buttonFeed: '🍽️ Fed',
+    buttonStartSleep: '🌙 Started sleep',
+    buttonEndSleep: '⏰ Woke up',
+    statWalksLabel: 'Walks',
+    statFeedsLabel: 'Feedings',
+    statMinutesLabel: 'Minutes outside',
+    statSleepHoursLabel: 'Sleep hours',
+    statSleepSessionsLabel: 'Sleep sessions',
+    statPipiLabel: 'with pee',
+    statPupuLabel: 'with poop',
+    timelineSubtitle: 'Today at a glance: outside duration, feeding, pee & poop.',
+    legendWalk: 'Walk',
+    legendSleep: 'Sleep',
+    legendFeed: 'Feed',
+    legendPipi: 'Pee',
+    legendPupu: 'Poop',
+    legendNow: 'Now',
+    rangeSubtitle: 'Day-by-day comparison as a 24h timeline per day.',
+    range7: '7 days',
+    range30: '30 days',
+    trendAvgMinutesLabel: 'Avg minutes/day',
+    trendAvgSleepHoursLabel: 'Avg sleep hours/day',
+    trendTotalWalksLabel: 'Total walks',
+    trendTotalFeedsLabel: 'Total feedings',
+    trendActiveDaysLabel: 'Active days',
+    manualSubtitle: 'For older data (e.g. yesterday), add entries with exact times.',
+    manualLabelType: 'Type',
+    manualTypeWalk: 'Walk',
+    manualTypeFeed: 'Feed',
+    manualTypeSleep: 'Sleep',
+    manualLabelCreated: 'Timestamp (optional)',
+    manualLabelStart: 'Start (Walk/Sleep)',
+    manualLabelEnd: 'End (Walk/Sleep)',
+    manualLabelPipi: 'Pee (walk only)',
+    manualLabelPupu: 'Poop (walk only)',
+    manualLabelNote: 'Note',
+    manualNotePlaceholder: 'e.g. backfilled',
+    buttonManualSave: '➕ Save entry',
+    dataSubtitle: 'All entries are stored and can be exported.',
+    buttonBackupJson: '💾 Create backup (JSON)',
+    buttonExportJson: '⬇️ Export JSON',
+    buttonExportCsv: '⬇️ Export CSV',
+    buttonDeleteLast: '↩️ Delete last entry',
+    buttonDeleteAll: '🗑️ Delete all data',
+    deleteHint: 'Tip: create a backup before deleting.',
+    buttonImportAppend: '📥 Append import',
+    buttonImportReplace: '♻️ Replace with import',
+    importHint: '`Append` adds new entries, `Replace` overwrites everything with the file.',
+    statusLoadingWalk: 'Loading status…',
+    statusLoadingSleep: 'Loading sleep status…',
+    statusOpenWalk: 'Active walk since {time}',
+    statusNoWalk: 'No active walk right now.',
+    statusOpenSleep: 'Active sleep since {time}',
+    statusNoSleep: 'No active sleep session right now.',
+    eventFeed: '🍽️ Feed · {time}{note}',
+    eventSleep: '😴 Sleep · {start} to {end} · {hours} h{note}',
+    eventWalk: '🚶 Walk · {start} · {minutes} min · {pipi}, {pupu}{note}',
+    notePrefix: ' · {note}',
+    pipiYes: 'pee',
+    pipiNo: 'no pee',
+    pupuYes: 'poop',
+    pupuNo: 'no poop',
+    markerWalk: 'Walk {start} to {end} ({minutes} min)',
+    markerSleep: 'Sleep {start} to {end} ({hours} h)',
+    markerPipi: 'Pee · {time}',
+    markerPupu: 'Poop · {time}',
+    markerFeed: 'Feed · {time}{note}',
+    markerNow: 'Now · {time}',
+    rangeSummary: '{walks} walks · {minutes} min · {feeds} feedings · {sleepHours} h sleep',
+    importSelectFile: 'Please select a file first.',
+    importOnlyJsonCsv: 'Only .json or .csv are supported.',
+    importReadFailed: 'Could not read file (please check format).',
+    importNoEvents: 'No importable events found.',
+    importDone: 'Import complete: {imported} imported, {skipped} skipped, {total} total.',
+    importFailed: 'Import failed: {error}',
+    backupCreating: 'Creating snapshot...',
+    downloadFailed: 'Download failed',
+    backupSaved: 'Backup saved: {fileName}',
+    backupFailed: 'Backup failed: {error}',
+    manualNeedsRange: 'Please fill start and end for this type.',
+    manualEndAfterStart: 'End must be after start.',
+    manualSaved: 'Manual entry saved.',
+    manualSaveFailed: 'Save failed: {error}',
+    confirmDeleteLast: 'Delete the last entry?',
+    confirmDeleteAll: 'Delete ALL data? This cannot be undone.',
+    confirmReplaceImport: 'Replace all existing data with the import file?',
+    deleteLastDone: 'Last entry deleted. {remaining} entries remaining.',
+    deleteAllDone: '{deletedCount} entries deleted. Data is now empty.',
+    deleteFailed: 'Delete failed: {error}',
+    loadError: 'Error while loading: {error}',
+    genericApiError: 'API request failed',
+  },
+};
+
+const SERVER_ERROR_TRANSLATIONS_EN = {
+  'Es läuft bereits ein Spaziergang.': 'A walk is already active.',
+  'Kein aktiver Spaziergang.': 'No active walk.',
+  'Es gibt bereits eine offene Schlaf-Session.': 'There is already an open sleep session.',
+  'Keine aktive Schlaf-Session.': 'No active sleep session.',
+  'Ungültiger Typ. Erlaubt: walk, feed, sleep.': 'Invalid type. Allowed: walk, feed, sleep.',
+  'Für manuelle Spaziergänge sind `walk_start` und `walk_end` nötig.': 'Manual walk entries require `walk_start` and `walk_end`.',
+  'Für manuelle Schlafdaten sind `sleep_start` und `sleep_end` nötig.': 'Manual sleep entries require `sleep_start` and `sleep_end`.',
+  'Ungültige Importdaten. Erwartet wird ein Array in `events`.': 'Invalid import data. Expected an array in `events`.',
+  'Keine Einträge vorhanden.': 'No entries available.',
+};
+
+function t(key, variables = {}) {
+  const dictionary = TRANSLATIONS[currentLanguage] || TRANSLATIONS.de;
+  const fallbackDictionary = TRANSLATIONS.de;
+  const template = dictionary[key] ?? fallbackDictionary[key] ?? key;
+
+  return template.replace(/\{(\w+)\}/g, (_match, variableName) => {
+    const value = variables[variableName];
+    return value === undefined || value === null ? '' : String(value);
+  });
+}
+
+function getLocale() {
+  return currentLanguage === 'en' ? 'en-US' : 'de-DE';
+}
+
+function translateServerError(message) {
+  if (currentLanguage !== 'en') {
+    return message;
+  }
+  return SERVER_ERROR_TRANSLATIONS_EN[message] || message;
+}
+
+function setText(id, text) {
+  const element = document.getElementById(id);
+  if (element) {
+    element.textContent = text;
+  }
+}
+
+function setPlaceholder(id, text) {
+  const element = document.getElementById(id);
+  if (element) {
+    element.placeholder = text;
+  }
+}
+
+function applyStaticTranslations() {
+  document.title = 'Luigi Diary';
+  setText('app-title', t('appTitle'));
+  setText('app-subtitle', t('appSubtitle'));
+  setText('language-label', t('languageLabel'));
+  setText('heading-status', t('headingStatus'));
+  setText('heading-actions', t('headingActions'));
+  setText('heading-today', t('headingToday'));
+  setText('heading-timeline', t('headingTimeline'));
+  setText('heading-range', t('headingRange'));
+  setText('heading-manual', t('headingManual'));
+  setText('heading-events', t('headingEvents'));
+  setText('heading-data', t('headingData'));
+  setText('label-pipi', t('labelPipi'));
+  setText('label-pupu', t('labelPupu'));
+  setText('start-walk', t('buttonStartWalk'));
+  setText('end-walk', t('buttonEndWalk'));
+  setText('feed', t('buttonFeed'));
+  setText('start-sleep', t('buttonStartSleep'));
+  setText('end-sleep', t('buttonEndSleep'));
+  setText('stat-walks-label', t('statWalksLabel'));
+  setText('stat-feeds-label', t('statFeedsLabel'));
+  setText('stat-minutes-label', t('statMinutesLabel'));
+  setText('stat-sleep-hours-label', t('statSleepHoursLabel'));
+  setText('stat-sleep-sessions-label', t('statSleepSessionsLabel'));
+  setText('stat-pipi-label', t('statPipiLabel'));
+  setText('stat-pupu-label', t('statPupuLabel'));
+  setText('timeline-subtitle', t('timelineSubtitle'));
+  setText('legend-walk', t('legendWalk'));
+  setText('legend-sleep', t('legendSleep'));
+  setText('legend-feed', t('legendFeed'));
+  setText('legend-pipi', t('legendPipi'));
+  setText('legend-pupu', t('legendPupu'));
+  setText('legend-now', t('legendNow'));
+  setText('range-subtitle', t('rangeSubtitle'));
+  setText('range-7', t('range7'));
+  setText('range-30', t('range30'));
+  setText('trend-avg-minutes-label', t('trendAvgMinutesLabel'));
+  setText('trend-avg-sleep-hours-label', t('trendAvgSleepHoursLabel'));
+  setText('trend-total-walks-label', t('trendTotalWalksLabel'));
+  setText('trend-total-feeds-label', t('trendTotalFeedsLabel'));
+  setText('trend-active-days-label', t('trendActiveDaysLabel'));
+  setText('manual-subtitle', t('manualSubtitle'));
+  setText('manual-label-type', t('manualLabelType'));
+  setText('manual-type-walk', t('manualTypeWalk'));
+  setText('manual-type-feed', t('manualTypeFeed'));
+  setText('manual-type-sleep', t('manualTypeSleep'));
+  setText('manual-label-created', t('manualLabelCreated'));
+  setText('manual-label-start', t('manualLabelStart'));
+  setText('manual-label-end', t('manualLabelEnd'));
+  setText('manual-label-pipi', t('manualLabelPipi'));
+  setText('manual-label-pupu', t('manualLabelPupu'));
+  setText('manual-label-note', t('manualLabelNote'));
+  setText('manual-save', t('buttonManualSave'));
+  setText('data-subtitle', t('dataSubtitle'));
+  setText('backup-json', t('buttonBackupJson'));
+  setText('export-json', t('buttonExportJson'));
+  setText('export-csv', t('buttonExportCsv'));
+  setText('delete-last', t('buttonDeleteLast'));
+  setText('delete-all', t('buttonDeleteAll'));
+  setText('delete-hint', t('deleteHint'));
+  setText('import-append', t('buttonImportAppend'));
+  setText('import-replace', t('buttonImportReplace'));
+  setText('import-hint', t('importHint'));
+
+  setPlaceholder('walk-note', t('walkNotePlaceholder'));
+  setPlaceholder('feed-note', t('feedNotePlaceholder'));
+  setPlaceholder('sleep-note', t('sleepNotePlaceholder'));
+  setPlaceholder('manual-note', t('manualNotePlaceholder'));
+
+  const languageSelect = document.getElementById('language-select');
+  if (languageSelect) {
+    languageSelect.setAttribute('aria-label', t('languageAria'));
+  }
+}
+
+function initLanguage() {
+  const savedLanguage = localStorage.getItem(LANGUAGE_STORAGE_KEY);
+  if (savedLanguage && SUPPORTED_LANGUAGES.includes(savedLanguage)) {
+    currentLanguage = savedLanguage;
+  }
+
+  const languageSelect = document.getElementById('language-select');
+  if (languageSelect) {
+    languageSelect.value = currentLanguage;
+  }
+}
 
 function parseTimestamp(value) {
   if (!value) return null;
@@ -51,7 +417,7 @@ function formatDateTime(value) {
   if (!value) return '-';
   const date = parseTimestamp(value);
   if (!date) return '-';
-  return date.toLocaleString('de-DE', { dateStyle: 'short', timeStyle: 'short' });
+  return date.toLocaleString(getLocale(), { dateStyle: 'short', timeStyle: 'short' });
 }
 
 function toHoursText(minutes) {
@@ -59,19 +425,32 @@ function toHoursText(minutes) {
 }
 
 function eventLabel(event) {
+  const note = event.note ? t('notePrefix', { note: event.note }) : '';
+
   if (event.type === 'feed') {
-    return `🍽️ Füttern · ${formatDateTime(event.created_at)}${event.note ? ` · ${event.note}` : ''}`;
+    return t('eventFeed', { time: formatDateTime(event.created_at), note });
   }
 
   if (event.type === 'sleep') {
     const duration = event.duration_min ?? 0;
-    return `😴 Schlaf · ${formatDateTime(event.sleep_start)} bis ${formatDateTime(event.sleep_end)} · ${toHoursText(duration)} h${event.note ? ` · ${event.note}` : ''}`;
+    return t('eventSleep', {
+      start: formatDateTime(event.sleep_start),
+      end: formatDateTime(event.sleep_end),
+      hours: toHoursText(duration),
+      note,
+    });
   }
 
-  const pipi = event.pipi ? 'Pipi' : 'kein Pipi';
-  const pupu = event.pupu ? 'Pupu' : 'kein Pupu';
+  const pipi = event.pipi ? t('pipiYes') : t('pipiNo');
+  const pupu = event.pupu ? t('pupuYes') : t('pupuNo');
   const duration = event.duration_min ?? 0;
-  return `🚶 Spaziergang · ${formatDateTime(event.walk_start)} · ${duration} min · ${pipi}, ${pupu}${event.note ? ` · ${event.note}` : ''}`;
+  return t('eventWalk', {
+    start: formatDateTime(event.walk_start),
+    minutes: duration,
+    pipi,
+    pupu,
+    note,
+  });
 }
 
 function createTimelineMarker({ minute, cssClass, title }) {
@@ -180,7 +559,11 @@ function renderTimelineIntoTrack(track, events, dayStart, options = {}) {
         createWalkSegment(
           startMinute,
           endMinute,
-          `Spaziergang ${formatDateTime(event.walk_start)} bis ${formatDateTime(event.walk_end || now.toISOString())} (${duration} min)`
+          t('markerWalk', {
+            start: formatDateTime(event.walk_start),
+            end: formatDateTime(event.walk_end || now.toISOString()),
+            minutes: duration,
+          })
         )
       );
 
@@ -190,7 +573,7 @@ function renderTimelineIntoTrack(track, events, dayStart, options = {}) {
           createTimelineMarker({
             minute: walkEndMinute,
             cssClass: 'timeline-pipi',
-            title: `Pipi · ${formatDateTime(event.walk_end)}`,
+            title: t('markerPipi', { time: formatDateTime(event.walk_end) }),
           })
         );
       }
@@ -201,7 +584,7 @@ function renderTimelineIntoTrack(track, events, dayStart, options = {}) {
           createTimelineMarker({
             minute: walkEndMinute,
             cssClass: 'timeline-pupu',
-            title: `Pupu · ${formatDateTime(event.walk_end)}`,
+            title: t('markerPupu', { time: formatDateTime(event.walk_end) }),
           })
         );
       }
@@ -223,7 +606,11 @@ function renderTimelineIntoTrack(track, events, dayStart, options = {}) {
         createSleepSegment(
           startMinute,
           endMinute,
-          `Schlaf ${formatDateTime(event.sleep_start)} bis ${formatDateTime(event.sleep_end || now.toISOString())} (${toHoursText(duration)} h)`
+          t('markerSleep', {
+            start: formatDateTime(event.sleep_start),
+            end: formatDateTime(event.sleep_end || now.toISOString()),
+            hours: toHoursText(duration),
+          })
         )
       );
     }
@@ -236,7 +623,10 @@ function renderTimelineIntoTrack(track, events, dayStart, options = {}) {
         createTimelineMarker({
           minute: minuteOfDay(createdAt),
           cssClass: 'timeline-feed',
-          title: `Füttern · ${formatDateTime(event.created_at)}${event.note ? ` · ${event.note}` : ''}`,
+          title: t('markerFeed', {
+            time: formatDateTime(event.created_at),
+            note: event.note ? t('notePrefix', { note: event.note }) : '',
+          }),
         })
       );
     }
@@ -247,7 +637,7 @@ function renderTimelineIntoTrack(track, events, dayStart, options = {}) {
       createTimelineMarker({
         minute: minuteOfDay(now),
         cssClass: 'timeline-now',
-        title: `Jetzt · ${now.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}`,
+        title: t('markerNow', { time: now.toLocaleTimeString(getLocale(), { hour: '2-digit', minute: '2-digit' }) }),
       })
     );
   }
@@ -334,7 +724,7 @@ function renderRangeTimelines(events, rangeDays) {
     header.className = 'timeline-day-header';
 
     const label = document.createElement('strong');
-    label.textContent = dayStart.toLocaleDateString('de-DE', {
+    label.textContent = dayStart.toLocaleDateString(getLocale(), {
       weekday: 'short',
       day: '2-digit',
       month: '2-digit',
@@ -348,7 +738,12 @@ function renderRangeTimelines(events, rangeDays) {
 
     const summary = document.createElement('span');
     summary.className = 'timeline-day-summary';
-    summary.textContent = `${walks.length} Spaziergänge · ${minutes} min · ${feeds} Fütterungen · ${sleepHours.toFixed(1)} h Schlaf`;
+    summary.textContent = t('rangeSummary', {
+      walks: walks.length,
+      minutes,
+      feeds,
+      sleepHours: sleepHours.toFixed(1),
+    });
 
     header.appendChild(label);
     header.appendChild(summary);
@@ -428,7 +823,7 @@ async function importFromFile(strategy) {
   const file = fileInput.files?.[0];
 
   if (!file) {
-    resultEl.textContent = 'Bitte zuerst eine Datei auswählen.';
+    resultEl.textContent = t('importSelectFile');
     return;
   }
 
@@ -442,16 +837,16 @@ async function importFromFile(strategy) {
     } else if (file.name.toLowerCase().endsWith('.csv')) {
       events = parseCsvRows(text);
     } else {
-      resultEl.textContent = 'Nur .json oder .csv werden unterstützt.';
+      resultEl.textContent = t('importOnlyJsonCsv');
       return;
     }
   } catch {
-    resultEl.textContent = 'Datei konnte nicht gelesen werden (Format prüfen).';
+    resultEl.textContent = t('importReadFailed');
     return;
   }
 
   if (!Array.isArray(events) || events.length === 0) {
-    resultEl.textContent = 'Keine importierbaren Events gefunden.';
+    resultEl.textContent = t('importNoEvents');
     return;
   }
 
@@ -461,11 +856,15 @@ async function importFromFile(strategy) {
       body: JSON.stringify({ strategy, events }),
     });
 
-    resultEl.textContent = `Import fertig: ${result.imported} importiert, ${result.skipped} übersprungen, ${result.total} gesamt.`;
+    resultEl.textContent = t('importDone', {
+      imported: result.imported,
+      skipped: result.skipped,
+      total: result.total,
+    });
     fileInput.value = '';
     await refreshAll();
   } catch (error) {
-    resultEl.textContent = `Import fehlgeschlagen: ${error.message}`;
+    resultEl.textContent = t('importFailed', { error: error.message });
   }
 }
 
@@ -480,12 +879,12 @@ async function refreshAll() {
   const sleepStatusEl = document.getElementById('sleep-status');
 
   walkStatusEl.textContent = status.hasOpenWalk
-    ? `Aktiver Spaziergang seit ${formatDateTime(status.openWalk.walk_start)}`
-    : 'Aktuell kein aktiver Spaziergang.';
+    ? t('statusOpenWalk', { time: formatDateTime(status.openWalk.walk_start) })
+    : t('statusNoWalk');
 
   sleepStatusEl.textContent = status.hasOpenSleep
-    ? `Aktiver Schlaf seit ${formatDateTime(status.openSleep.sleep_start)}`
-    : 'Aktuell keine aktive Schlaf-Session.';
+    ? t('statusOpenSleep', { time: formatDateTime(status.openSleep.sleep_start) })
+    : t('statusNoSleep');
 
   document.getElementById('walks').textContent = String(stats.walks);
   document.getElementById('feeds').textContent = String(stats.feeds);
@@ -520,12 +919,12 @@ function triggerDownload(url) {
 
 async function downloadWithFeedback(url, statusElementId, fallbackFileName) {
   const statusEl = document.getElementById(statusElementId);
-  if (statusEl) statusEl.textContent = 'Erstelle Snapshot...';
+  if (statusEl) statusEl.textContent = t('backupCreating');
 
   try {
     const response = await fetch(url);
     if (!response.ok) {
-      throw new Error('Download fehlgeschlagen');
+      throw new Error(t('downloadFailed'));
     }
 
     const blob = await response.blob();
@@ -543,9 +942,9 @@ async function downloadWithFeedback(url, statusElementId, fallbackFileName) {
     document.body.removeChild(link);
     URL.revokeObjectURL(objectUrl);
 
-    if (statusEl) statusEl.textContent = `Backup gespeichert: ${fileName}`;
+    if (statusEl) statusEl.textContent = t('backupSaved', { fileName });
   } catch (error) {
-    if (statusEl) statusEl.textContent = `Backup fehlgeschlagen: ${error.message}`;
+    if (statusEl) statusEl.textContent = t('backupFailed', { error: error.message });
   }
 }
 
@@ -626,12 +1025,12 @@ async function submitManualEvent() {
   resultEl.textContent = '';
 
   if ((type === 'walk' || type === 'sleep') && (!start || !end)) {
-    setManualFieldError(['manual-start', 'manual-end'], 'Bitte für diesen Typ Start und Ende ausfüllen.');
+    setManualFieldError(['manual-start', 'manual-end'], t('manualNeedsRange'));
     return;
   }
 
   if ((type === 'walk' || type === 'sleep') && parseTimestamp(end) <= parseTimestamp(start)) {
-    setManualFieldError(['manual-start', 'manual-end'], 'Ende muss nach dem Start liegen.');
+    setManualFieldError(['manual-start', 'manual-end'], t('manualEndAfterStart'));
     return;
   }
 
@@ -659,10 +1058,10 @@ async function submitManualEvent() {
       body: JSON.stringify(payload),
     });
 
-    resultEl.textContent = 'Manueller Eintrag gespeichert.';
+    resultEl.textContent = t('manualSaved');
     await refreshAll();
   } catch (error) {
-    resultEl.textContent = `Speichern fehlgeschlagen: ${error.message}`;
+    resultEl.textContent = t('manualSaveFailed', { error: error.message });
   }
 }
 
@@ -675,15 +1074,27 @@ function bindActions() {
   const backupButton = document.getElementById('backup-json');
   const exportJsonButton = document.getElementById('export-json');
   const exportCsvButton = document.getElementById('export-csv');
+  const deleteLastButton = document.getElementById('delete-last');
+  const deleteAllButton = document.getElementById('delete-all');
   const importAppendButton = document.getElementById('import-append');
   const importReplaceButton = document.getElementById('import-replace');
   const manualSaveButton = document.getElementById('manual-save');
   const manualTypeSelect = document.getElementById('manual-type');
   const range7Button = document.getElementById('range-7');
   const range30Button = document.getElementById('range-30');
+  const deleteResultEl = document.getElementById('delete-result');
+  const languageSelect = document.getElementById('language-select');
 
   updateManualFormVisibility();
   manualTypeSelect.addEventListener('change', updateManualFormVisibility);
+  languageSelect.addEventListener('change', async (event) => {
+    const nextLanguage = event.target.value;
+    if (!SUPPORTED_LANGUAGES.includes(nextLanguage)) return;
+    currentLanguage = nextLanguage;
+    localStorage.setItem(LANGUAGE_STORAGE_KEY, currentLanguage);
+    applyStaticTranslations();
+    await refreshAll();
+  });
 
   startWalkButton.addEventListener('click', async () => {
     try {
@@ -693,7 +1104,7 @@ function bindActions() {
       });
       await refreshAll();
     } catch (error) {
-      alert(error.message);
+      alert(translateServerError(error.message));
     }
   });
 
@@ -713,7 +1124,7 @@ function bindActions() {
       document.getElementById('walk-note').value = '';
       await refreshAll();
     } catch (error) {
-      alert(error.message);
+      alert(translateServerError(error.message));
     }
   });
 
@@ -728,7 +1139,7 @@ function bindActions() {
       document.getElementById('feed-note').value = '';
       await refreshAll();
     } catch (error) {
-      alert(error.message);
+      alert(translateServerError(error.message));
     }
   });
 
@@ -740,7 +1151,7 @@ function bindActions() {
       });
       await refreshAll();
     } catch (error) {
-      alert(error.message);
+      alert(translateServerError(error.message));
     }
   });
 
@@ -755,7 +1166,7 @@ function bindActions() {
       document.getElementById('sleep-note').value = '';
       await refreshAll();
     } catch (error) {
-      alert(error.message);
+      alert(translateServerError(error.message));
     }
   });
 
@@ -771,12 +1182,44 @@ function bindActions() {
     triggerDownload('/api/export/csv');
   });
 
+  deleteLastButton.addEventListener('click', async () => {
+    const confirmed = window.confirm(t('confirmDeleteLast'));
+    if (!confirmed) return;
+
+    deleteResultEl.textContent = '';
+    try {
+      const result = await api('/api/events/last', {
+        method: 'DELETE',
+      });
+      deleteResultEl.textContent = t('deleteLastDone', { remaining: result.remaining });
+      await refreshAll();
+    } catch (error) {
+      deleteResultEl.textContent = t('deleteFailed', { error: error.message });
+    }
+  });
+
+  deleteAllButton.addEventListener('click', async () => {
+    const confirmed = window.confirm(t('confirmDeleteAll'));
+    if (!confirmed) return;
+
+    deleteResultEl.textContent = '';
+    try {
+      const result = await api('/api/events', {
+        method: 'DELETE',
+      });
+      deleteResultEl.textContent = t('deleteAllDone', { deletedCount: result.deletedCount });
+      await refreshAll();
+    } catch (error) {
+      deleteResultEl.textContent = t('deleteFailed', { error: error.message });
+    }
+  });
+
   importAppendButton.addEventListener('click', async () => {
     await importFromFile('append');
   });
 
   importReplaceButton.addEventListener('click', async () => {
-    const confirmed = window.confirm('Wirklich alle vorhandenen Daten durch die Importdatei ersetzen?');
+    const confirmed = window.confirm(t('confirmReplaceImport'));
     if (!confirmed) return;
     await importFromFile('replace');
   });
@@ -796,7 +1239,9 @@ function bindActions() {
   });
 }
 
+initLanguage();
+applyStaticTranslations();
 bindActions();
 refreshAll().catch((error) => {
-  alert(`Fehler beim Laden: ${error.message}`);
+  alert(t('loadError', { error: error.message }));
 });
