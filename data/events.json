@@ -1,0 +1,110 @@
+{
+  "nextId": 10,
+  "events": [
+    {
+      "id": 1,
+      "type": "feed",
+      "createdAt": "2026-03-01T10:00:00.000Z",
+      "walkStart": null,
+      "walkEnd": null,
+      "durationMin": null,
+      "pipi": null,
+      "pupu": null,
+      "note": "import test"
+    },
+    {
+      "id": 2,
+      "type": "walk",
+      "createdAt": "2026-03-27T09:57:32.400Z",
+      "walkStart": "2026-03-27T09:57:32.400Z",
+      "walkEnd": "2026-03-27T09:57:32.411Z",
+      "durationMin": 0,
+      "pipi": true,
+      "pupu": false,
+      "note": "kurzer test"
+    },
+    {
+      "id": 3,
+      "type": "feed",
+      "createdAt": "2026-03-27T09:57:32.422Z",
+      "walkStart": null,
+      "walkEnd": null,
+      "durationMin": null,
+      "pipi": null,
+      "pupu": null,
+      "note": "150g"
+    },
+    {
+      "id": 4,
+      "type": "walk",
+      "createdAt": "2026-03-27T10:04:39.271Z",
+      "walkStart": "2026-03-27T10:04:39.271Z",
+      "walkEnd": "2026-03-27T10:04:48.967Z",
+      "durationMin": 0,
+      "pipi": true,
+      "pupu": true,
+      "note": null
+    },
+    {
+      "id": 5,
+      "type": "feed",
+      "createdAt": "2026-03-27T10:04:52.097Z",
+      "walkStart": null,
+      "walkEnd": null,
+      "durationMin": null,
+      "pipi": null,
+      "pupu": null,
+      "note": null
+    },
+    {
+      "id": 6,
+      "type": "feed",
+      "createdAt": "2026-03-27T10:04:53.446Z",
+      "walkStart": null,
+      "walkEnd": null,
+      "durationMin": null,
+      "pipi": null,
+      "pupu": null,
+      "note": null
+    },
+    {
+      "type": "sleep",
+      "createdAt": "2026-03-27T11:03:08.777Z",
+      "walkStart": null,
+      "walkEnd": null,
+      "durationMin": 0,
+      "pipi": null,
+      "pupu": null,
+      "sleepStart": "2026-03-27T11:03:08.777Z",
+      "sleepEnd": "2026-03-27T11:03:08.789Z",
+      "note": "nachts",
+      "id": 7
+    },
+    {
+      "type": "sleep",
+      "createdAt": "2026-03-25T22:30:00.000Z",
+      "walkStart": null,
+      "walkEnd": null,
+      "durationMin": 480,
+      "pipi": null,
+      "pupu": null,
+      "sleepStart": "2026-03-25T22:30:00.000Z",
+      "sleepEnd": "2026-03-26T06:30:00.000Z",
+      "note": "manuell",
+      "id": 8
+    },
+    {
+      "type": "walk",
+      "createdAt": "2026-03-26T12:00:00.000Z",
+      "walkStart": "2026-03-26T12:00:00.000Z",
+      "walkEnd": "2026-03-26T12:25:00.000Z",
+      "durationMin": 25,
+      "pipi": true,
+      "pupu": false,
+      "sleepStart": null,
+      "sleepEnd": null,
+      "note": "nachgetragen",
+      "id": 9
+    }
+  ]
+}

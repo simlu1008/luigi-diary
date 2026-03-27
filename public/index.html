@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Luigi Diary</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="container">
+      <h1>🐶 Luigi Diary</h1>
+      <p class="subtitle">Spaziergänge & Fütterung schnell vom Handy erfassen</p>
+
+      <section class="card status-card">
+        <h2>Status</h2>
+        <p id="walk-status">Lade Status…</p>
+        <p id="sleep-status">Lade Schlafstatus…</p>
+      </section>
+
+      <section class="card actions">
+        <h2>Aktionen</h2>
+        <button id="start-walk" class="btn btn-primary">🚶 Spaziergang starten</button>
+
+        <div class="end-walk-block">
+          <label><input type="checkbox" id="pipi" /> Pipi gemacht</label>
+          <label><input type="checkbox" id="pupu" /> Pupu gemacht</label>
+          <input type="text" id="walk-note" placeholder="Notiz (optional)" />
+          <button id="end-walk" class="btn btn-warning">✅ Spaziergang beenden</button>
+        </div>
+
+        <input type="text" id="feed-note" placeholder="Füttern-Notiz (z. B. 150g)" />
+        <button id="feed" class="btn btn-success">🍽️ Gefüttert</button>
+
+        <button id="start-sleep" class="btn btn-secondary">🌙 Schlafen gestartet</button>
+        <input type="text" id="sleep-note" placeholder="Schlaf-Notiz (optional)" />
+        <button id="end-sleep" class="btn btn-dark">⏰ Aufgestanden</button>
+      </section>
+
+      <section class="card stats">
+        <h2>Heute</h2>
+        <div class="stats-grid">
+          <div><strong id="walks">0</strong><span>Spaziergänge</span></div>
+          <div><strong id="feeds">0</strong><span>Fütterungen</span></div>
+          <div><strong id="minutes">0</strong><span>Minuten draußen</span></div>
+          <div><strong id="sleep-hours">0</strong><span>Schlafstunden</span></div>
+          <div><strong id="sleep-sessions">0</strong><span>Schlaf-Sessions</span></div>
+          <div><strong id="pipi-count">0</strong><span>mit Pipi</span></div>
+          <div><strong id="pupu-count">0</strong><span>mit Pupu</span></div>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Daten</h2>
+        <p class="timeline-subtitle">Alle Einträge bleiben gespeichert und können exportiert werden.</p>
+        <div class="export-actions">
+          <button id="backup-json" class="btn btn-primary">💾 Backup Snapshot (JSON)</button>
+          <button id="export-json" class="btn btn-dark">⬇️ Export JSON</button>
+          <button id="export-csv" class="btn btn-dark">⬇️ Export CSV</button>
+        </div>
+        <p id="backup-result" class="import-result" aria-live="polite"></p>
+        <div class="import-actions">
+          <input id="import-file" type="file" accept=".json,.csv" />
+          <div class="import-buttons">
+            <button id="import-append" class="btn btn-secondary">📥 Import anhängen</button>
+            <button id="import-replace" class="btn btn-danger">♻️ Import ersetzen</button>
+          </div>
+          <p class="timeline-subtitle">`Anhängen` ergänzt neue Einträge, `Ersetzen` überschreibt alles mit der Datei.</p>
+          <p id="import-result" class="import-result" aria-live="polite"></p>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Manuell nachtragen</h2>
+        <p class="timeline-subtitle">Für alte Daten (z. B. gestern) kannst du Einträge mit Uhrzeit nachtragen.</p>
+        <div class="manual-grid">
+          <label>
+            Typ
+            <select id="manual-type">
+              <option value="walk">Spaziergang</option>
+              <option value="feed">Füttern</option>
+              <option value="sleep">Schlafen</option>
+            </select>
+          </label>
+          <label>
+            Zeitpunkt (optional)
+            <input id="manual-created-at" type="datetime-local" />
+          </label>
+          <label>
+            Start (Walk/Sleep)
+            <input id="manual-start" type="datetime-local" />
+          </label>
+          <label>
+            Ende (Walk/Sleep)
+            <input id="manual-end" type="datetime-local" />
+          </label>
+          <label><input type="checkbox" id="manual-pipi" /> Pipi (nur Walk)</label>
+          <label><input type="checkbox" id="manual-pupu" /> Pupu (nur Walk)</label>
+          <label>
+            Notiz
+            <input id="manual-note" type="text" placeholder="z. B. nachgetragen" />
+          </label>
+        </div>
+        <p id="manual-inline-error" class="inline-error" aria-live="polite"></p>
+        <button id="manual-save" class="btn btn-success">➕ Eintrag speichern</button>
+        <p id="manual-result" class="import-result" aria-live="polite"></p>
+      </section>
+
+      <section class="card">
+        <h2>24h Zeitstrahl</h2>
+        <p class="timeline-subtitle">Ein Blick auf heute: Dauer draußen, Füttern, Pipi & Pupu.</p>
+        <div id="timeline-track" class="timeline-track" aria-label="24h Zeitstrahl"></div>
+        <div class="timeline-axis" aria-hidden="true">
+          <span>00:00</span>
+          <span>06:00</span>
+          <span>12:00</span>
+          <span>18:00</span>
+          <span>24:00</span>
+        </div>
+        <div class="timeline-legend">
+          <span><i class="legend-dot walk"></i> Spaziergang</span>
+          <span><i class="legend-dot sleep"></i> Schlaf</span>
+          <span><i class="legend-dot feed"></i> Füttern</span>
+          <span><i class="legend-dot pipi"></i> Pipi</span>
+          <span><i class="legend-dot pupu"></i> Pupu</span>
+          <span><i class="legend-dot now"></i> Jetzt</span>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Zeitraum-Auswertung</h2>
+        <p class="timeline-subtitle">Tagesvergleich als 24h-Zeitstrahl pro Tag.</p>
+        <div class="range-toggle">
+          <button id="range-7" class="toggle-btn active" type="button">7 Tage</button>
+          <button id="range-30" class="toggle-btn" type="button">30 Tage</button>
+        </div>
+        <div class="trend-grid" id="trend-grid">
+          <div><strong id="trend-avg-minutes">0</strong><span>Ø Minuten/Tag</span></div>
+          <div><strong id="trend-avg-sleep-hours">0</strong><span>Ø Schlafstunden/Tag</span></div>
+          <div><strong id="trend-total-walks">0</strong><span>Spaziergänge gesamt</span></div>
+          <div><strong id="trend-total-feeds">0</strong><span>Fütterungen gesamt</span></div>
+          <div><strong id="trend-active-days">0</strong><span>Tage mit Aktivität</span></div>
+        </div>
+        <div id="week-timelines" class="week-timelines"></div>
+      </section>
+
+      <section class="card">
+        <h2>Letzte Einträge</h2>
+        <ul id="events" class="events"></ul>
+      </section>
+    </main>
+
+    <script src="/app.js"></script>
+  </body>
+</html>

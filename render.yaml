@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: luigi-diary-webapp
+    runtime: node
+    plan: free
+    region: frankfurt
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_VERSION
+        value: 20
+      - key: DATA_FILE
+        value: /var/data/events.json
+    disk:
+      name: luigi-diary-data
+      mountPath: /var/data
+      sizeGB: 1
