@@ -6,7 +6,20 @@ const path = require('node:path');
 
 const app = express();
 const port = Number(process.env.PORT || 3000);
-const dataFile = process.env.DATA_FILE || path.join(__dirname, 'data', 'events.json');
+function resolveDataFilePath() {
+  if (process.env.DATA_FILE) {
+    return process.env.DATA_FILE;
+  }
+
+  const renderVolumePath = '/data/events.json';
+  if (fs.existsSync('/data')) {
+    return renderVolumePath;
+  }
+
+  return path.join(__dirname, 'data', 'events.json');
+}
+
+const dataFile = resolveDataFilePath();
 const appUsername = process.env.APP_USERNAME || '';
 const appPassword = process.env.APP_PASSWORD || '';
 const isBasicAuthEnabled = Boolean(appUsername && appPassword);
