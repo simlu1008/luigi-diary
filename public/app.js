@@ -15,7 +15,7 @@ const MINUTES_PER_DAY = 24 * 60;
 let currentRangeDays = 7;
 const LANGUAGE_STORAGE_KEY = 'luigi-language';
 const SUPPORTED_LANGUAGES = ['de', 'en'];
-let currentLanguage = 'de';
+let currentLanguage = 'en';
 
 const TRANSLATIONS = {
   de: {
