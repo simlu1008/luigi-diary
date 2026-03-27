@@ -18,6 +18,9 @@ const SUPPORTED_LANGUAGES = ['de', 'en'];
 let currentLanguage = 'en';
 let currentWalkPipiAt = null;
 let currentWalkPupuAt = null;
+let lastPipiDoneAt = null;
+let lastPupuDoneAt = null;
+let eliminationStatusIntervalId = null;
 
 const TRANSLATIONS = {
   de: {
@@ -94,6 +97,15 @@ const TRANSLATIONS = {
     statusNoWalk: 'Aktuell kein aktiver Spaziergang.',
     statusOpenSleep: 'Aktiver Schlaf seit {time}',
     statusNoSleep: 'Aktuell keine aktive Schlaf-Session.',
+    statusLastPipi: 'Letztes Pipi: {since}',
+    statusLastPupu: 'Letztes Pupu: {since}',
+    statusNever: 'noch kein Eintrag',
+    timeJustNow: 'gerade eben',
+    timeMinutesAgo: 'vor {minutes} min',
+    timeHoursAgo: 'vor {hours} h',
+    timeHoursMinutesAgo: 'vor {hours} h {minutes} min',
+    timeDaysAgo: 'vor {days} d',
+    timeDaysHoursAgo: 'vor {days} d {hours} h',
     eventFeed: '🍽️ Füttern · {time}{note}',
     eventSleep: '😴 Schlaf · {start} bis {end} · {hours} h{note}',
     eventWalk: '🚶 Spaziergang · {start} · {minutes} min · {pipi}, {pupu}{note}',
@@ -206,6 +218,15 @@ const TRANSLATIONS = {
     statusNoWalk: 'No active walk right now.',
     statusOpenSleep: 'Active sleep since {time}',
     statusNoSleep: 'No active sleep session right now.',
+    statusLastPipi: 'Last pee: {since}',
+    statusLastPupu: 'Last poop: {since}',
+    statusNever: 'no entry yet',
+    timeJustNow: 'just now',
+    timeMinutesAgo: '{minutes} min ago',
+    timeHoursAgo: '{hours} h ago',
+    timeHoursMinutesAgo: '{hours} h {minutes} min ago',
+    timeDaysAgo: '{days} d ago',
+    timeDaysHoursAgo: '{days} d {hours} h ago',
     eventFeed: '🍽️ Feed · {time}{note}',
     eventSleep: '😴 Sleep · {start} to {end} · {hours} h{note}',
     eventWalk: '🚶 Walk · {start} · {minutes} min · {pipi}, {pupu}{note}',
@@ -368,6 +389,8 @@ function applyStaticTranslations() {
   if (languageSelect) {
     languageSelect.setAttribute('aria-label', t('languageAria'));
   }
+
+  renderEliminationStatus();
 }
 
 function initLanguage() {
@@ -420,6 +443,72 @@ function formatDateTime(value) {
   const date = parseTimestamp(value);
   if (!date) return '-';
   return date.toLocaleString(getLocale(), { dateStyle: 'short', timeStyle: 'short' });
+}
+
+function formatElapsedSince(dateValue) {
+  if (!dateValue) {
+    return t('statusNever');
+  }
+
+  const elapsedMinutes = Math.max(0, Math.floor((Date.now() - dateValue.getTime()) / 60000));
+  if (elapsedMinutes < 1) {
+    return t('timeJustNow');
+  }
+
+  if (elapsedMinutes < 60) {
+    return t('timeMinutesAgo', { minutes: elapsedMinutes });
+  }
+
+  const hours = Math.floor(elapsedMinutes / 60);
+  const minutes = elapsedMinutes % 60;
+  if (hours < 24) {
+    if (minutes === 0) {
+      return t('timeHoursAgo', { hours });
+    }
+    return t('timeHoursMinutesAgo', { hours, minutes });
+  }
+
+  const days = Math.floor(hours / 24);
+  const remainingHours = hours % 24;
+  if (remainingHours === 0) {
+    return t('timeDaysAgo', { days });
+  }
+  return t('timeDaysHoursAgo', { days, hours: remainingHours });
+}
+
+function extractLastEliminationTimestamp(events, fieldName, fallbackFieldName) {
+  let latestDate = null;
+
+  for (const event of events) {
+    if (event.type !== 'walk' || event[fieldName] !== true) continue;
+    const eventTimeRaw = event[`${fieldName}_at`] || event[fallbackFieldName] || event.created_at;
+    const eventTime = parseTimestamp(eventTimeRaw);
+    if (!eventTime) continue;
+
+    if (!latestDate || eventTime > latestDate) {
+      latestDate = eventTime;
+    }
+  }
+
+  return latestDate;
+}
+
+function renderEliminationStatus() {
+  const pipiStatusEl = document.getElementById('last-pipi-status');
+  const pupuStatusEl = document.getElementById('last-pupu-status');
+  if (!pipiStatusEl || !pupuStatusEl) return;
+
+  pipiStatusEl.textContent = t('statusLastPipi', { since: formatElapsedSince(lastPipiDoneAt) });
+  pupuStatusEl.textContent = t('statusLastPupu', { since: formatElapsedSince(lastPupuDoneAt) });
+}
+
+function startEliminationStatusTicker() {
+  if (eliminationStatusIntervalId) {
+    clearInterval(eliminationStatusIntervalId);
+  }
+  eliminationStatusIntervalId = setInterval(() => {
+    renderEliminationStatus();
+  }, 60000);
 }
 
 function toHoursText(minutes) {
@@ -896,6 +985,10 @@ async function refreshAll() {
     ? t('statusOpenSleep', { time: formatDateTime(status.openSleep.sleep_start) })
     : t('statusNoSleep');
 
+  lastPipiDoneAt = extractLastEliminationTimestamp(events, 'pipi', 'walk_end');
+  lastPupuDoneAt = extractLastEliminationTimestamp(events, 'pupu', 'walk_end');
+  renderEliminationStatus();
+
   document.getElementById('walks').textContent = String(stats.walks);
   document.getElementById('feeds').textContent = String(stats.feeds);
   document.getElementById('minutes').textContent = String(stats.totalWalkMinutes);
@@ -1274,6 +1367,7 @@ function bindActions() {
 initLanguage();
 applyStaticTranslations();
 bindActions();
+startEliminationStatusTicker();
 refreshAll().catch((error) => {
   alert(t('loadError', { error: error.message }));
 });
