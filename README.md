@@ -127,7 +127,7 @@ APP_USERNAME=luigi
 APP_PASSWORD=dein_starkes_passwort
 ```
 
-Wenn beide Variablen gesetzt sind, schützt die App alle Seiten und API-Endpunkte per Basic Auth. Nur `GET /api/health` bleibt offen, damit Deploy-Healthchecks weiter funktionieren.
+Wenn beide Variablen gesetzt sind, schützt die App alle Seiten und API-Endpunkte per Basic Auth. Die App lädt `.env` beim Start automatisch, und beim Öffnen der Web-App fragt der Browser direkt nach Benutzername und Passwort. Nur `GET /api/health` bleibt offen, damit Deploy-Healthchecks weiter funktionieren.
 
 ### Passwortschutz auf Render
 
