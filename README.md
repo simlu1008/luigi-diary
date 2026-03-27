@@ -131,8 +131,7 @@ Sie enthält:
 
 - Web Service (`Node`)
 - Healthcheck auf `/api/health`
-- Persistentes Volume auf `/var/data`
-- `DATA_FILE=/var/data/events.json`
+- `DATA_FILE=./data/events.json` (Free-Tier kompatibel)
 
 Schritte:
 
@@ -141,7 +140,9 @@ Schritte:
 3. Repo auswählen (Render liest `render.yaml` automatisch)
 4. Deploy starten
 
-Wichtig: Das Volume sorgt dafür, dass deine Daten auch nach Neustarts erhalten bleiben.
+Wichtig für Free-Tier: Render unterstützt dort kein Disk-Volume. Das heißt, Daten können bei Redeploy/Restart verloren gehen.
+
+Wenn du dauerhafte Speicherung willst, nutze einen bezahlten Plan und setze zusätzlich ein Persistent Disk-Volume (z. B. `/var/data`) sowie `DATA_FILE=/var/data/events.json`.
 
 ### Minimaler Ablauf (Render/Railway)
 
