@@ -1,5 +1,6 @@
 require('dotenv').config();
 const express = require('express');
+const crypto = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
 
@@ -8,10 +9,23 @@ const port = Number(process.env.PORT || 3000);
 const dataFile = process.env.DATA_FILE || path.join(__dirname, 'data', 'events.json');
 const appUsername = process.env.APP_USERNAME || '';
 const appPassword = process.env.APP_PASSWORD || '';
-const isAuthEnabled = Boolean(appUsername && appPassword);
+const isBasicAuthEnabled = Boolean(appUsername && appPassword);
+const appPinRaw = String(process.env.APP_PIN || '').trim();
+const isPinAuthEnabled = /^\d{4}$/.test(appPinRaw);
+const pinSessionSecret = process.env.APP_PIN_SESSION_SECRET || `${appPinRaw}:luigi-diary`;
+const authMode = isPinAuthEnabled ? 'pin' : isBasicAuthEnabled ? 'basic' : 'none';
+const pinCookieName = 'luigi_pin_auth';
 
 if ((appUsername && !appPassword) || (!appUsername && appPassword)) {
   console.warn('Auth ist nur aktiv, wenn APP_USERNAME und APP_PASSWORD beide gesetzt sind.');
+}
+
+if (appPinRaw && !isPinAuthEnabled) {
+  console.warn('APP_PIN muss genau 4 Ziffern enthalten, sonst bleibt PIN-Auth deaktiviert.');
+}
+
+if (isPinAuthEnabled && isBasicAuthEnabled) {
+  console.warn('APP_PIN ist gesetzt: PIN-Auth ist aktiv, Basic Auth wird ignoriert.');
 }
 
 function ensureDataFile() {
@@ -79,6 +93,8 @@ function serializeEvent(event) {
     duration_min: event.durationMin,
     pipi: event.pipi,
     pupu: event.pupu,
+    pipi_at: event.pipiAt,
+    pupu_at: event.pupuAt,
     sleep_start: event.sleepStart,
     sleep_end: event.sleepEnd,
     sleep_hours: event.type === 'sleep' && Number.isFinite(event.durationMin) ? Number((event.durationMin / 60).toFixed(2)) : null,
@@ -135,6 +151,8 @@ function normalizeImportedEvent(rawEvent) {
   const durationMin = toIntegerOrNull(rawEvent.duration_min ?? rawEvent.durationMin);
   const pipi = toBooleanOrNull(rawEvent.pipi);
   const pupu = toBooleanOrNull(rawEvent.pupu);
+  const pipiAt = toIsoOrNull(rawEvent.pipi_at ?? rawEvent.pipiAt);
+  const pupuAt = toIsoOrNull(rawEvent.pupu_at ?? rawEvent.pupuAt);
   const noteRaw = rawEvent.note;
   const note = typeof noteRaw === 'string' && noteRaw.trim() ? noteRaw.trim() : null;
 
@@ -147,6 +165,8 @@ function normalizeImportedEvent(rawEvent) {
       durationMin: null,
       pipi: null,
       pupu: null,
+      pipiAt: null,
+      pupuAt: null,
       sleepStart: null,
       sleepEnd: null,
       note,
@@ -164,6 +184,8 @@ function normalizeImportedEvent(rawEvent) {
       durationMin: effectiveDuration,
       pipi: null,
       pupu: null,
+      pipiAt: null,
+      pupuAt: null,
       sleepStart,
       sleepEnd,
       note,
@@ -180,6 +202,8 @@ function normalizeImportedEvent(rawEvent) {
     durationMin: effectiveWalkDuration,
     pipi,
     pupu,
+    pipiAt: pipi ? pipiAt ?? walkEnd : null,
+    pupuAt: pupu ? pupuAt ?? walkEnd : null,
     sleepStart: null,
     sleepEnd: null,
     note,
@@ -195,6 +219,8 @@ function eventFingerprint(event) {
     event.durationMin,
     event.pipi,
     event.pupu,
+    event.pipiAt,
+    event.pupuAt,
     event.sleepStart,
     event.sleepEnd,
     event.note,
@@ -235,6 +261,70 @@ function parseBasicAuthHeader(headerValue) {
   }
 }
 
+function parseCookieHeader(cookieHeader) {
+  if (!cookieHeader || typeof cookieHeader !== 'string') return {};
+
+  return cookieHeader.split(';').reduce((accumulator, part) => {
+    const [rawKey, ...rawValue] = part.trim().split('=');
+    if (!rawKey) return accumulator;
+    accumulator[rawKey] = decodeURIComponent(rawValue.join('=') || '');
+    return accumulator;
+  }, {});
+}
+
+function signPinPayload(payload) {
+  return crypto.createHmac('sha256', pinSessionSecret).update(payload).digest('hex');
+}
+
+function createPinToken() {
+  const payload = 'ok';
+  return `${payload}.${signPinPayload(payload)}`;
+}
+
+function isValidPinToken(token) {
+  if (!token || typeof token !== 'string' || !token.includes('.')) return false;
+  const [payload, signature] = token.split('.');
+  if (!payload || !signature) return false;
+
+  const expected = signPinPayload(payload);
+  const left = Buffer.from(signature, 'utf8');
+  const right = Buffer.from(expected, 'utf8');
+  if (left.length !== right.length) return false;
+
+  return crypto.timingSafeEqual(left, right);
+}
+
+function isPinRequestAuthenticated(req) {
+  const cookies = parseCookieHeader(req.headers.cookie);
+  return isValidPinToken(cookies[pinCookieName]);
+}
+
+function isSecureRequest(req) {
+  if (req.secure) return true;
+  const forwardedProto = req.headers['x-forwarded-proto'];
+  if (typeof forwardedProto === 'string') {
+    return forwardedProto.split(',')[0].trim().toLowerCase() === 'https';
+  }
+  return false;
+}
+
+function setPinSessionCookie(req, res) {
+  const securePart = isSecureRequest(req) ? '; Secure' : '';
+  res.setHeader(
+    'Set-Cookie',
+    `${pinCookieName}=${encodeURIComponent(createPinToken())}; Path=/; HttpOnly; SameSite=Lax; Max-Age=2592000${securePart}`
+  );
+}
+
+function clearPinSessionCookie(req, res) {
+  const securePart = isSecureRequest(req) ? '; Secure' : '';
+  res.setHeader('Set-Cookie', `${pinCookieName}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0${securePart}`);
+}
+
+function isPinPublicPath(req) {
+  return req.path === '/api/health' || req.path === '/auth/pin' || req.path === '/api/pin/verify' || req.path === '/api/pin/logout';
+}
+
 function isRequestAuthorized(req) {
   const credentials = parseBasicAuthHeader(req.headers.authorization);
   if (!credentials) return false;
@@ -251,17 +341,126 @@ function respondUnauthorized(req, res) {
 
 app.use(express.json());
 app.use((req, res, next) => {
-  if (!isAuthEnabled || req.path === '/api/health') {
+  if (authMode === 'none') {
     return next();
   }
 
-  if (isRequestAuthorized(req)) {
+  if (authMode === 'basic') {
+    if (req.path === '/api/health' || isRequestAuthorized(req)) {
+      return next();
+    }
+
+    return respondUnauthorized(req, res);
+  }
+
+  if (isPinPublicPath(req) || isPinRequestAuthenticated(req)) {
     return next();
   }
 
-  return respondUnauthorized(req, res);
+  if (req.path.startsWith('/api/')) {
+    return res.status(401).json({ error: 'PIN erforderlich.' });
+  }
+
+  return res.redirect('/auth/pin');
 });
 app.use(express.static(path.join(__dirname, 'public')));
+
+app.get('/auth/pin', (req, res) => {
+  if (authMode !== 'pin') {
+    return res.redirect('/');
+  }
+
+  if (isPinRequestAuthenticated(req)) {
+    return res.redirect('/');
+  }
+
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  return res.send(`<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Luigi Diary · PIN</title>
+    <style>
+      body { margin: 0; font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif; background: #f5f7fb; color: #111827; }
+      main { min-height: 100vh; display: grid; place-items: center; padding: 20px; }
+      .card { width: 100%; max-width: 360px; background: #fff; border: 1px solid #e5e7eb; border-radius: 14px; padding: 18px; box-sizing: border-box; }
+      h1 { margin: 0 0 8px; font-size: 22px; }
+      p { margin: 0 0 14px; color: #6b7280; }
+      input { width: 100%; box-sizing: border-box; padding: 12px; font-size: 20px; text-align: center; letter-spacing: 8px; border-radius: 12px; border: 1px solid #d1d5db; }
+      button { margin-top: 12px; width: 100%; border: none; border-radius: 12px; padding: 12px; font-size: 16px; color: white; background: #2563eb; }
+      .error { margin-top: 10px; color: #b91c1c; min-height: 20px; font-size: 14px; text-align: center; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <section class="card">
+        <h1>🐶 Luigi Diary</h1>
+        <p>Bitte 4-stelligen PIN eingeben</p>
+        <form id="pin-form">
+          <input id="pin-input" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="4" autocomplete="one-time-code" enterkeyhint="done" required />
+          <button type="submit">Öffnen</button>
+          <div id="error" class="error"></div>
+        </form>
+      </section>
+    </main>
+    <script>
+      const form = document.getElementById('pin-form');
+      const input = document.getElementById('pin-input');
+      const error = document.getElementById('error');
+      input.focus();
+
+      form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        error.textContent = '';
+        const pin = input.value.trim();
+        if (!/^\\d{4}$/.test(pin)) {
+          error.textContent = 'PIN muss genau 4 Ziffern haben.';
+          return;
+        }
+
+        const response = await fetch('/api/pin/verify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ pin })
+        });
+
+        if (!response.ok) {
+          error.textContent = 'PIN ist falsch.';
+          input.value = '';
+          input.focus();
+          return;
+        }
+
+        window.location.replace('/');
+      });
+    </script>
+  </body>
+</html>`);
+});
+
+app.post('/api/pin/verify', (req, res) => {
+  if (authMode !== 'pin') {
+    return res.status(409).json({ error: 'PIN-Auth ist nicht aktiv.' });
+  }
+
+  const pin = String(req.body?.pin || '').trim();
+  if (!/^\d{4}$/.test(pin)) {
+    return res.status(400).json({ error: 'PIN muss genau 4 Ziffern haben.' });
+  }
+
+  if (pin !== appPinRaw) {
+    return res.status(401).json({ error: 'PIN ist falsch.' });
+  }
+
+  setPinSessionCookie(req, res);
+  return res.json({ ok: true });
+});
+
+app.post('/api/pin/logout', (req, res) => {
+  clearPinSessionCookie(req, res);
+  return res.json({ ok: true });
+});
 
 app.get('/api/health', (_req, res) => {
   res.json({ ok: true });
@@ -305,6 +504,8 @@ app.post('/api/walk/start', (req, res) => {
     durationMin: null,
     pipi: null,
     pupu: null,
+    pipiAt: null,
+    pupuAt: null,
     sleepStart: null,
     sleepEnd: null,
     note: note || null,
@@ -324,11 +525,17 @@ app.post('/api/walk/end', (req, res) => {
 
   const endTime = nowIso();
   const note = typeof req.body?.note === 'string' ? req.body.note.trim() : '';
+  const pipi = req.body?.pipi === true;
+  const pupu = req.body?.pupu === true;
+  const pipiAt = makeIsoFromRequest(req.body?.pipi_at);
+  const pupuAt = makeIsoFromRequest(req.body?.pupu_at);
 
   openWalk.walkEnd = endTime;
   openWalk.durationMin = minutesBetween(openWalk.walkStart, endTime);
-  openWalk.pipi = req.body?.pipi === true;
-  openWalk.pupu = req.body?.pupu === true;
+  openWalk.pipi = pipi;
+  openWalk.pupu = pupu;
+  openWalk.pipiAt = pipi ? pipiAt || endTime : null;
+  openWalk.pupuAt = pupu ? pupuAt || endTime : null;
   if (note) {
     openWalk.note = note;
   }
@@ -344,6 +551,8 @@ app.post('/api/walk/end', (req, res) => {
     duration_min: openWalk.durationMin,
     pipi: openWalk.pipi,
     pupu: openWalk.pupu,
+    pipi_at: openWalk.pipiAt,
+    pupu_at: openWalk.pupuAt,
     note: openWalk.note,
   });
 });
@@ -360,6 +569,8 @@ app.post('/api/feed', (req, res) => {
     durationMin: null,
     pipi: null,
     pupu: null,
+    pipiAt: null,
+    pupuAt: null,
     sleepStart: null,
     sleepEnd: null,
     note: note || null,
@@ -386,6 +597,8 @@ app.post('/api/sleep/start', (req, res) => {
     durationMin: null,
     pipi: null,
     pupu: null,
+    pipiAt: null,
+    pupuAt: null,
     sleepStart: nowIso(),
     sleepEnd: null,
     note: note || null,
@@ -437,6 +650,8 @@ app.post('/api/manual/event', (req, res) => {
       durationMin: null,
       pipi: null,
       pupu: null,
+      pipiAt: null,
+      pupuAt: null,
       sleepStart: null,
       sleepEnd: null,
       note,
@@ -461,10 +676,15 @@ app.post('/api/manual/event', (req, res) => {
       durationMin: toIntegerOrNull(req.body?.duration_min) ?? minutesBetween(walkStart, walkEnd),
       pipi: toBooleanOrNull(req.body?.pipi),
       pupu: toBooleanOrNull(req.body?.pupu),
+      pipiAt: null,
+      pupuAt: null,
       sleepStart: null,
       sleepEnd: null,
       note,
     };
+
+    event.pipiAt = event.pipi ? makeIsoFromRequest(req.body?.pipi_at) || walkEnd : null;
+    event.pupuAt = event.pupu ? makeIsoFromRequest(req.body?.pupu_at) || walkEnd : null;
 
     const inserted = pushEvent(store, event);
     return res.status(201).json(serializeEvent(inserted));
@@ -486,6 +706,8 @@ app.post('/api/manual/event', (req, res) => {
     durationMin: sleepDurationMin,
     pipi: null,
     pupu: null,
+    pipiAt: null,
+    pupuAt: null,
     sleepStart,
     sleepEnd,
     note,
@@ -641,6 +863,8 @@ app.get('/api/export/csv', (_req, res) => {
     'sleep_hours',
     'pipi',
     'pupu',
+    'pipi_at',
+    'pupu_at',
     'note',
   ];
   const rows = events.map((event) =>
@@ -656,6 +880,8 @@ app.get('/api/export/csv', (_req, res) => {
       event.sleep_hours,
       event.pipi,
       event.pupu,
+      event.pipi_at,
+      event.pupu_at,
       event.note,
     ]
       .map(escapeCsv)

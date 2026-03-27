@@ -113,6 +113,8 @@ Optional kannst du Variablen setzen:
 - `PORT` (Default: `3000`)
 - `DATA_FILE` (Default: `./data/events.json`)
 - `APP_USERNAME` und `APP_PASSWORD` (optional, aktiviert Passwortschutz per Basic Auth)
+- `APP_PIN` (optional, exakt 4 Ziffern; aktiviert PIN-Abfrage beim Aufruf)
+- `APP_PIN_SESSION_SECRET` (optional, zusätzlicher Secret-Wert für PIN-Session-Cookie)
 
 Beispiel:
 
@@ -128,6 +130,22 @@ APP_PASSWORD=dein_starkes_passwort
 ```
 
 Wenn beide Variablen gesetzt sind, schützt die App alle Seiten und API-Endpunkte per Basic Auth. Die App lädt `.env` beim Start automatisch, und beim Öffnen der Web-App fragt der Browser direkt nach Benutzername und Passwort. Nur `GET /api/health` bleibt offen, damit Deploy-Healthchecks weiter funktionieren.
+
+### 4-stelliger PIN (empfohlen für deinen Wunsch)
+
+Wenn `APP_PIN` gesetzt ist (genau 4 Ziffern), wird beim Aufruf zuerst eine PIN-Seite angezeigt.
+
+Beispiel in `.env`:
+
+```bash
+APP_PIN=1234
+```
+
+Hinweise:
+
+- Auf iPhone/Smartphones wird durch `inputmode="numeric"` direkt die Ziffern-Tastatur angezeigt.
+- `APP_PIN` hat Vorrang vor `APP_USERNAME`/`APP_PASSWORD`.
+- `GET /api/health` bleibt weiterhin ohne Login erreichbar.
 
 ### Passwortschutz auf Render
 

@@ -16,6 +16,8 @@ let currentRangeDays = 7;
 const LANGUAGE_STORAGE_KEY = 'luigi-language';
 const SUPPORTED_LANGUAGES = ['de', 'en'];
 let currentLanguage = 'en';
+let currentWalkPipiAt = null;
+let currentWalkPupuAt = null;
 
 const TRANSLATIONS = {
   de: {
@@ -553,7 +555,10 @@ function renderTimelineIntoTrack(track, events, dayStart, options = {}) {
       const startMinute = minuteOfDay(clippedStart);
       const endMinute = minuteOfDay(clippedEnd);
       const duration = event.duration_min ?? Math.max(0, Math.round(endMinute - startMinute));
-      const walkEndInDay = walkEnd >= dayStart && walkEnd < dayEnd;
+      const pipiAtRaw = event.pipi_at || event.walk_end;
+      const pupuAtRaw = event.pupu_at || event.walk_end;
+      const pipiAt = parseTimestamp(pipiAtRaw);
+      const pupuAt = parseTimestamp(pupuAtRaw);
 
       track.appendChild(
         createWalkSegment(
@@ -567,24 +572,24 @@ function renderTimelineIntoTrack(track, events, dayStart, options = {}) {
         )
       );
 
-      if (event.pipi && event.walk_end && walkEndInDay) {
-        const walkEndMinute = minuteOfDay(walkEnd);
+      if (event.pipi && pipiAt && pipiAt >= dayStart && pipiAt < dayEnd) {
+        const pipiMinute = minuteOfDay(pipiAt);
         track.appendChild(
           createTimelineMarker({
-            minute: walkEndMinute,
+            minute: pipiMinute,
             cssClass: 'timeline-pipi',
-            title: t('markerPipi', { time: formatDateTime(event.walk_end) }),
+            title: t('markerPipi', { time: formatDateTime(pipiAtRaw) }),
           })
         );
       }
 
-      if (event.pupu && event.walk_end && walkEndInDay) {
-        const walkEndMinute = minuteOfDay(walkEnd);
+      if (event.pupu && pupuAt && pupuAt >= dayStart && pupuAt < dayEnd) {
+        const pupuMinute = minuteOfDay(pupuAt);
         track.appendChild(
           createTimelineMarker({
-            minute: walkEndMinute,
+            minute: pupuMinute,
             cssClass: 'timeline-pupu',
-            title: t('markerPupu', { time: formatDateTime(event.walk_end) }),
+            title: t('markerPupu', { time: formatDateTime(pupuAtRaw) }),
           })
         );
       }
@@ -882,6 +887,11 @@ async function refreshAll() {
     ? t('statusOpenWalk', { time: formatDateTime(status.openWalk.walk_start) })
     : t('statusNoWalk');
 
+  if (!status.hasOpenWalk) {
+    currentWalkPipiAt = null;
+    currentWalkPupuAt = null;
+  }
+
   sleepStatusEl.textContent = status.hasOpenSleep
     ? t('statusOpenSleep', { time: formatDateTime(status.openSleep.sleep_start) })
     : t('statusNoSleep');
@@ -1068,6 +1078,8 @@ async function submitManualEvent() {
 function bindActions() {
   const startWalkButton = document.getElementById('start-walk');
   const endWalkButton = document.getElementById('end-walk');
+  const pipiCheckbox = document.getElementById('pipi');
+  const pupuCheckbox = document.getElementById('pupu');
   const feedButton = document.getElementById('feed');
   const startSleepButton = document.getElementById('start-sleep');
   const endSleepButton = document.getElementById('end-sleep');
@@ -1096,12 +1108,24 @@ function bindActions() {
     await refreshAll();
   });
 
+  pipiCheckbox.addEventListener('change', () => {
+    currentWalkPipiAt = pipiCheckbox.checked ? new Date().toISOString() : null;
+  });
+
+  pupuCheckbox.addEventListener('change', () => {
+    currentWalkPupuAt = pupuCheckbox.checked ? new Date().toISOString() : null;
+  });
+
   startWalkButton.addEventListener('click', async () => {
     try {
       await api('/api/walk/start', {
         method: 'POST',
         body: JSON.stringify({}),
       });
+      pipiCheckbox.checked = false;
+      pupuCheckbox.checked = false;
+      currentWalkPipiAt = null;
+      currentWalkPupuAt = null;
       await refreshAll();
     } catch (error) {
       alert(translateServerError(error.message));
@@ -1109,18 +1133,26 @@ function bindActions() {
   });
 
   endWalkButton.addEventListener('click', async () => {
-    const pipi = document.getElementById('pipi').checked;
-    const pupu = document.getElementById('pupu').checked;
+    const pipi = pipiCheckbox.checked;
+    const pupu = pupuCheckbox.checked;
     const note = document.getElementById('walk-note').value.trim();
 
     try {
       await api('/api/walk/end', {
         method: 'POST',
-        body: JSON.stringify({ pipi, pupu, note }),
+        body: JSON.stringify({
+          pipi,
+          pupu,
+          pipi_at: pipi ? currentWalkPipiAt || new Date().toISOString() : null,
+          pupu_at: pupu ? currentWalkPupuAt || new Date().toISOString() : null,
+          note,
+        }),
       });
 
-      document.getElementById('pipi').checked = false;
-      document.getElementById('pupu').checked = false;
+      pipiCheckbox.checked = false;
+      pupuCheckbox.checked = false;
+      currentWalkPipiAt = null;
+      currentWalkPupuAt = null;
       document.getElementById('walk-note').value = '';
       await refreshAll();
     } catch (error) {
