@@ -96,6 +96,10 @@ function getOpenSleep(store) {
   return store.events.findLast((event) => event.type === 'sleep' && !event.sleepEnd);
 }
 
+function getOpenAlone(store) {
+  return store.events.findLast((event) => event.type === 'alone' && !event.aloneEnd);
+}
+
 function serializeEvent(event) {
   return {
     id: event.id,
@@ -111,6 +115,9 @@ function serializeEvent(event) {
     sleep_start: event.sleepStart,
     sleep_end: event.sleepEnd,
     sleep_hours: event.type === 'sleep' && Number.isFinite(event.durationMin) ? Number((event.durationMin / 60).toFixed(2)) : null,
+    alone_start: event.aloneStart,
+    alone_end: event.aloneEnd,
+    alone_hours: event.type === 'alone' && Number.isFinite(event.durationMin) ? Number((event.durationMin / 60).toFixed(2)) : null,
     note: event.note,
   };
 }
@@ -153,7 +160,7 @@ function toIntegerOrNull(value) {
 function normalizeImportedEvent(rawEvent) {
   if (!rawEvent || typeof rawEvent !== 'object') return null;
 
-  const type = ['walk', 'feed', 'sleep'].includes(rawEvent.type) ? rawEvent.type : null;
+  const type = ['walk', 'feed', 'sleep', 'alone'].includes(rawEvent.type) ? rawEvent.type : null;
   if (!type) return null;
 
   const createdAt = toIsoOrNull(rawEvent.created_at ?? rawEvent.createdAt) || nowIso();
@@ -161,6 +168,8 @@ function normalizeImportedEvent(rawEvent) {
   const walkEnd = toIsoOrNull(rawEvent.walk_end ?? rawEvent.walkEnd);
   const sleepStart = toIsoOrNull(rawEvent.sleep_start ?? rawEvent.sleepStart);
   const sleepEnd = toIsoOrNull(rawEvent.sleep_end ?? rawEvent.sleepEnd);
+  const aloneStart = toIsoOrNull(rawEvent.alone_start ?? rawEvent.aloneStart);
+  const aloneEnd = toIsoOrNull(rawEvent.alone_end ?? rawEvent.aloneEnd);
   const durationMin = toIntegerOrNull(rawEvent.duration_min ?? rawEvent.durationMin);
   const pipi = toBooleanOrNull(rawEvent.pipi);
   const pupu = toBooleanOrNull(rawEvent.pupu);
@@ -182,6 +191,8 @@ function normalizeImportedEvent(rawEvent) {
       pupuAt: null,
       sleepStart: null,
       sleepEnd: null,
+      aloneStart: null,
+      aloneEnd: null,
       note,
     };
   }
@@ -201,6 +212,29 @@ function normalizeImportedEvent(rawEvent) {
       pupuAt: null,
       sleepStart,
       sleepEnd,
+      aloneStart: null,
+      aloneEnd: null,
+      note,
+    };
+  }
+
+  if (type === 'alone') {
+    const effectiveDuration = durationMin ?? (aloneStart && aloneEnd ? minutesBetween(aloneStart, aloneEnd) : null);
+
+    return {
+      type,
+      createdAt,
+      walkStart: null,
+      walkEnd: null,
+      durationMin: effectiveDuration,
+      pipi: null,
+      pupu: null,
+      pipiAt: null,
+      pupuAt: null,
+      sleepStart: null,
+      sleepEnd: null,
+      aloneStart,
+      aloneEnd,
       note,
     };
   }
@@ -219,6 +253,8 @@ function normalizeImportedEvent(rawEvent) {
     pupuAt: pupu ? pupuAt ?? walkEnd : null,
     sleepStart: null,
     sleepEnd: null,
+    aloneStart: null,
+    aloneEnd: null,
     note,
   };
 }
@@ -236,6 +272,8 @@ function eventFingerprint(event) {
     event.pupuAt,
     event.sleepStart,
     event.sleepEnd,
+    event.aloneStart,
+    event.aloneEnd,
     event.note,
   ].join('|');
 }
@@ -483,6 +521,7 @@ app.get('/api/status', (_req, res) => {
   const store = readStore();
   const openWalk = getOpenWalk(store);
   const openSleep = getOpenSleep(store);
+  const openAlone = getOpenAlone(store);
   res.json({
     hasOpenWalk: Boolean(openWalk),
     openWalk: openWalk
@@ -496,6 +535,13 @@ app.get('/api/status', (_req, res) => {
       ? {
           id: openSleep.id,
           sleep_start: openSleep.sleepStart,
+        }
+      : null,
+    hasOpenAlone: Boolean(openAlone),
+    openAlone: openAlone
+      ? {
+          id: openAlone.id,
+          alone_start: openAlone.aloneStart,
         }
       : null,
   });
@@ -521,6 +567,8 @@ app.post('/api/walk/start', (req, res) => {
     pupuAt: null,
     sleepStart: null,
     sleepEnd: null,
+    aloneStart: null,
+    aloneEnd: null,
     note: note || null,
   };
 
@@ -586,6 +634,8 @@ app.post('/api/feed', (req, res) => {
     pupuAt: null,
     sleepStart: null,
     sleepEnd: null,
+    aloneStart: null,
+    aloneEnd: null,
     note: note || null,
   };
 
@@ -614,6 +664,8 @@ app.post('/api/sleep/start', (req, res) => {
     pupuAt: null,
     sleepStart: nowIso(),
     sleepEnd: null,
+    aloneStart: null,
+    aloneEnd: null,
     note: note || null,
   };
 
@@ -642,12 +694,62 @@ app.post('/api/sleep/end', (req, res) => {
   return res.json(serializeEvent(openSleep));
 });
 
+app.post('/api/alone/start', (req, res) => {
+  const store = readStore();
+  const openAlone = getOpenAlone(store);
+  if (openAlone) {
+    return res.status(409).json({ error: 'Es gibt bereits eine offene Alleine-Session.' });
+  }
+
+  const note = typeof req.body?.note === 'string' ? req.body.note.trim() : '';
+  const event = {
+    type: 'alone',
+    createdAt: nowIso(),
+    walkStart: null,
+    walkEnd: null,
+    durationMin: null,
+    pipi: null,
+    pupu: null,
+    pipiAt: null,
+    pupuAt: null,
+    sleepStart: null,
+    sleepEnd: null,
+    aloneStart: nowIso(),
+    aloneEnd: null,
+    note: note || null,
+  };
+
+  const inserted = pushEvent(store, event);
+  return res.status(201).json({ id: inserted.id });
+});
+
+app.post('/api/alone/end', (req, res) => {
+  const store = readStore();
+  const openAlone = getOpenAlone(store);
+  if (!openAlone) {
+    return res.status(409).json({ error: 'Keine aktive Alleine-Session.' });
+  }
+
+  const endTime = nowIso();
+  const note = typeof req.body?.note === 'string' ? req.body.note.trim() : '';
+
+  openAlone.aloneEnd = endTime;
+  openAlone.durationMin = minutesBetween(openAlone.aloneStart, endTime);
+  if (note) {
+    openAlone.note = note;
+  }
+
+  writeStore(store);
+
+  return res.json(serializeEvent(openAlone));
+});
+
 app.post('/api/manual/event', (req, res) => {
   const store = readStore();
   const type = req.body?.type;
 
-  if (!['walk', 'feed', 'sleep'].includes(type)) {
-    return res.status(400).json({ error: 'Ungültiger Typ. Erlaubt: walk, feed, sleep.' });
+  if (!['walk', 'feed', 'sleep', 'alone'].includes(type)) {
+    return res.status(400).json({ error: 'Ungültiger Typ. Erlaubt: walk, feed, sleep, alone.' });
   }
 
   const noteRaw = req.body?.note;
@@ -667,6 +769,8 @@ app.post('/api/manual/event', (req, res) => {
       pupuAt: null,
       sleepStart: null,
       sleepEnd: null,
+      aloneStart: null,
+      aloneEnd: null,
       note,
     };
     const inserted = pushEvent(store, event);
@@ -693,6 +797,8 @@ app.post('/api/manual/event', (req, res) => {
       pupuAt: null,
       sleepStart: null,
       sleepEnd: null,
+      aloneStart: null,
+      aloneEnd: null,
       note,
     };
 
@@ -705,6 +811,36 @@ app.post('/api/manual/event', (req, res) => {
 
   const sleepStart = makeIsoFromRequest(req.body?.sleep_start);
   const sleepEnd = makeIsoFromRequest(req.body?.sleep_end);
+
+  if (type === 'alone') {
+    const aloneStart = makeIsoFromRequest(req.body?.alone_start);
+    const aloneEnd = makeIsoFromRequest(req.body?.alone_end);
+
+    if (!aloneStart || !aloneEnd) {
+      return res.status(400).json({ error: 'Für manuelle Alleine-Daten sind `alone_start` und `alone_end` nötig.' });
+    }
+
+    const aloneDurationMin = toIntegerOrNull(req.body?.duration_min) ?? minutesBetween(aloneStart, aloneEnd);
+    const event = {
+      type: 'alone',
+      createdAt: makeIsoFromRequest(req.body?.created_at) || aloneStart,
+      walkStart: null,
+      walkEnd: null,
+      durationMin: aloneDurationMin,
+      pipi: null,
+      pupu: null,
+      pipiAt: null,
+      pupuAt: null,
+      sleepStart: null,
+      sleepEnd: null,
+      aloneStart,
+      aloneEnd,
+      note,
+    };
+
+    const inserted = pushEvent(store, event);
+    return res.status(201).json(serializeEvent(inserted));
+  }
 
   if (!sleepStart || !sleepEnd) {
     return res.status(400).json({ error: 'Für manuelle Schlafdaten sind `sleep_start` und `sleep_end` nötig.' });
@@ -723,6 +859,8 @@ app.post('/api/manual/event', (req, res) => {
     pupuAt: null,
     sleepStart,
     sleepEnd,
+    aloneStart: null,
+    aloneEnd: null,
     note,
   };
 
@@ -872,8 +1010,11 @@ app.get('/api/export/csv', (_req, res) => {
     'walk_end',
     'sleep_start',
     'sleep_end',
+    'alone_start',
+    'alone_end',
     'duration_min',
     'sleep_hours',
+    'alone_hours',
     'pipi',
     'pupu',
     'pipi_at',
@@ -889,8 +1030,11 @@ app.get('/api/export/csv', (_req, res) => {
       event.walk_end,
       event.sleep_start,
       event.sleep_end,
+      event.alone_start,
+      event.alone_end,
       event.duration_min,
       event.sleep_hours,
+      event.alone_hours,
       event.pipi,
       event.pupu,
       event.pipi_at,

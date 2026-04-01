@@ -18,6 +18,7 @@ const SUPPORTED_LANGUAGES = ['de', 'en'];
 let currentLanguage = 'en';
 let currentWalkPipiAt = null;
 let currentWalkPupuAt = null;
+let currentAloneStartedAt = null;
 let lastPipiDoneAt = null;
 let lastPupuDoneAt = null;
 let eliminationStatusIntervalId = null;
@@ -46,6 +47,8 @@ const TRANSLATIONS = {
     buttonFeed: '🍽️ Gefüttert',
     buttonStartSleep: '🌙 Schlafen gestartet',
     buttonEndSleep: '⏰ Aufgestanden',
+    buttonStartAlone: '🏠 Alleine gelassen',
+    buttonEndAlone: '🤝 Wieder da',
     statWalksLabel: 'Spaziergänge',
     statFeedsLabel: 'Fütterungen',
     statMinutesLabel: 'Minuten draußen',
@@ -97,6 +100,8 @@ const TRANSLATIONS = {
     statusNoWalk: 'Aktuell kein aktiver Spaziergang.',
     statusOpenSleep: 'Aktiver Schlaf seit {time}',
     statusNoSleep: 'Aktuell keine aktive Schlaf-Session.',
+    statusOpenAlone: 'Aktuell alleine seit {since}',
+    statusNoAlone: 'Aktuell nicht alleine.',
     statusLastPipi: 'Letztes Pipi: {since}',
     statusLastPupu: 'Letztes Pupu: {since}',
     statusNever: 'noch kein Eintrag',
@@ -108,6 +113,7 @@ const TRANSLATIONS = {
     timeDaysHoursAgo: 'vor {days} d {hours} h',
     eventFeed: '🍽️ Füttern · {time}{note}',
     eventSleep: '😴 Schlaf · {start} bis {end} · {hours} h{note}',
+    eventAlone: '🏠 Alleine · {start} bis {end} · {hours} h{note}',
     eventWalk: '🚶 Spaziergang · {start} · {minutes} min · {pipi}, {pupu}{note}',
     notePrefix: ' · {note}',
     pipiYes: 'Pipi',
@@ -167,6 +173,8 @@ const TRANSLATIONS = {
     buttonFeed: '🍽️ Fed',
     buttonStartSleep: '🌙 Started sleep',
     buttonEndSleep: '⏰ Woke up',
+    buttonStartAlone: '🏠 Left alone',
+    buttonEndAlone: '🤝 Back home',
     statWalksLabel: 'Walks',
     statFeedsLabel: 'Feedings',
     statMinutesLabel: 'Minutes outside',
@@ -218,6 +226,8 @@ const TRANSLATIONS = {
     statusNoWalk: 'No active walk right now.',
     statusOpenSleep: 'Active sleep since {time}',
     statusNoSleep: 'No active sleep session right now.',
+    statusOpenAlone: 'Currently alone for {since}',
+    statusNoAlone: 'Currently not alone.',
     statusLastPipi: 'Last pee: {since}',
     statusLastPupu: 'Last poop: {since}',
     statusNever: 'no entry yet',
@@ -229,6 +239,7 @@ const TRANSLATIONS = {
     timeDaysHoursAgo: '{days} d {hours} h ago',
     eventFeed: '🍽️ Feed · {time}{note}',
     eventSleep: '😴 Sleep · {start} to {end} · {hours} h{note}',
+    eventAlone: '🏠 Alone · {start} to {end} · {hours} h{note}',
     eventWalk: '🚶 Walk · {start} · {minutes} min · {pipi}, {pupu}{note}',
     notePrefix: ' · {note}',
     pipiYes: 'pee',
@@ -272,9 +283,12 @@ const SERVER_ERROR_TRANSLATIONS_EN = {
   'Kein aktiver Spaziergang.': 'No active walk.',
   'Es gibt bereits eine offene Schlaf-Session.': 'There is already an open sleep session.',
   'Keine aktive Schlaf-Session.': 'No active sleep session.',
-  'Ungültiger Typ. Erlaubt: walk, feed, sleep.': 'Invalid type. Allowed: walk, feed, sleep.',
+  'Es gibt bereits eine offene Alleine-Session.': 'There is already an open alone session.',
+  'Keine aktive Alleine-Session.': 'No active alone session.',
+  'Ungültiger Typ. Erlaubt: walk, feed, sleep, alone.': 'Invalid type. Allowed: walk, feed, sleep, alone.',
   'Für manuelle Spaziergänge sind `walk_start` und `walk_end` nötig.': 'Manual walk entries require `walk_start` and `walk_end`.',
   'Für manuelle Schlafdaten sind `sleep_start` und `sleep_end` nötig.': 'Manual sleep entries require `sleep_start` and `sleep_end`.',
+  'Für manuelle Alleine-Daten sind `alone_start` und `alone_end` nötig.': 'Manual alone entries require `alone_start` and `alone_end`.',
   'Ungültige Importdaten. Erwartet wird ein Array in `events`.': 'Invalid import data. Expected an array in `events`.',
   'Keine Einträge vorhanden.': 'No entries available.',
 };
@@ -335,6 +349,8 @@ function applyStaticTranslations() {
   setText('feed', t('buttonFeed'));
   setText('start-sleep', t('buttonStartSleep'));
   setText('end-sleep', t('buttonEndSleep'));
+  setText('start-alone', t('buttonStartAlone'));
+  setText('end-alone', t('buttonEndAlone'));
   setText('stat-walks-label', t('statWalksLabel'));
   setText('stat-feeds-label', t('statFeedsLabel'));
   setText('stat-minutes-label', t('statMinutesLabel'));
@@ -502,12 +518,25 @@ function renderEliminationStatus() {
   pupuStatusEl.textContent = t('statusLastPupu', { since: formatElapsedSince(lastPupuDoneAt) });
 }
 
+function renderCurrentAloneStatus() {
+  const aloneStatusEl = document.getElementById('alone-status');
+  if (!aloneStatusEl) return;
+
+  if (!currentAloneStartedAt) {
+    aloneStatusEl.textContent = t('statusNoAlone');
+    return;
+  }
+
+  aloneStatusEl.textContent = t('statusOpenAlone', { since: formatElapsedSince(currentAloneStartedAt) });
+}
+
 function startEliminationStatusTicker() {
   if (eliminationStatusIntervalId) {
     clearInterval(eliminationStatusIntervalId);
   }
   eliminationStatusIntervalId = setInterval(() => {
     renderEliminationStatus();
+    renderCurrentAloneStatus();
   }, 60000);
 }
 
@@ -527,6 +556,16 @@ function eventLabel(event) {
     return t('eventSleep', {
       start: formatDateTime(event.sleep_start),
       end: formatDateTime(event.sleep_end),
+      hours: toHoursText(duration),
+      note,
+    });
+  }
+
+  if (event.type === 'alone') {
+    const duration = event.duration_min ?? 0;
+    return t('eventAlone', {
+      start: formatDateTime(event.alone_start),
+      end: formatDateTime(event.alone_end),
       hours: toHoursText(duration),
       note,
     });
@@ -971,6 +1010,7 @@ async function refreshAll() {
 
   const walkStatusEl = document.getElementById('walk-status');
   const sleepStatusEl = document.getElementById('sleep-status');
+  const aloneStatusEl = document.getElementById('alone-status');
 
   walkStatusEl.textContent = status.hasOpenWalk
     ? t('statusOpenWalk', { time: formatDateTime(status.openWalk.walk_start) })
@@ -984,6 +1024,11 @@ async function refreshAll() {
   sleepStatusEl.textContent = status.hasOpenSleep
     ? t('statusOpenSleep', { time: formatDateTime(status.openSleep.sleep_start) })
     : t('statusNoSleep');
+
+  currentAloneStartedAt = status.hasOpenAlone ? parseTimestamp(status.openAlone.alone_start) : null;
+  if (aloneStatusEl) {
+    renderCurrentAloneStatus();
+  }
 
   lastPipiDoneAt = extractLastEliminationTimestamp(events, 'pipi', 'walk_end');
   lastPupuDoneAt = extractLastEliminationTimestamp(events, 'pupu', 'walk_end');
@@ -1176,6 +1221,8 @@ function bindActions() {
   const feedButton = document.getElementById('feed');
   const startSleepButton = document.getElementById('start-sleep');
   const endSleepButton = document.getElementById('end-sleep');
+  const startAloneButton = document.getElementById('start-alone');
+  const endAloneButton = document.getElementById('end-alone');
   const backupButton = document.getElementById('backup-json');
   const exportJsonButton = document.getElementById('export-json');
   const exportCsvButton = document.getElementById('export-csv');
@@ -1289,6 +1336,30 @@ function bindActions() {
         body: JSON.stringify({ note }),
       });
       document.getElementById('sleep-note').value = '';
+      await refreshAll();
+    } catch (error) {
+      alert(translateServerError(error.message));
+    }
+  });
+
+  startAloneButton.addEventListener('click', async () => {
+    try {
+      await api('/api/alone/start', {
+        method: 'POST',
+        body: JSON.stringify({}),
+      });
+      await refreshAll();
+    } catch (error) {
+      alert(translateServerError(error.message));
+    }
+  });
+
+  endAloneButton.addEventListener('click', async () => {
+    try {
+      await api('/api/alone/end', {
+        method: 'POST',
+        body: JSON.stringify({}),
+      });
       await refreshAll();
     } catch (error) {
       alert(translateServerError(error.message));
