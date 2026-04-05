@@ -32,6 +32,8 @@ let lastPipiDoneAt = null;
 let lastPupuDoneAt = null;
 let eliminationStatusIntervalId = null;
 let todayFedGrams = 0;
+let quickAddUndoTimerId = null;
+let quickAddUndoEventId = null;
 
 const TRANSLATIONS = {
   de: {
@@ -160,6 +162,10 @@ const TRANSLATIONS = {
     buttonSaveSettings: '💾 Einstellungen speichern',
     settingsSaved: 'Einstellungen gespeichert.',
     settingsSaveFailed: 'Bitte gültige Werte eingeben.',
+    quickAddSaved: '{grams} g gespeichert.',
+    quickAddUndo: 'Rückgängig',
+    quickAddUndone: 'Fütterung rückgängig gemacht.',
+    quickAddUndoFailed: 'Rückgängig fehlgeschlagen: {error}',
     manualNeedsRange: 'Bitte für diesen Typ Start und Ende ausfüllen.',
     manualEndAfterStart: 'Ende muss nach dem Start liegen.',
     manualSaved: 'Manueller Eintrag gespeichert.',
@@ -299,6 +305,10 @@ const TRANSLATIONS = {
     buttonSaveSettings: '💾 Save settings',
     settingsSaved: 'Settings saved.',
     settingsSaveFailed: 'Please enter valid values.',
+    quickAddSaved: '{grams} g saved.',
+    quickAddUndo: 'Undo',
+    quickAddUndone: 'Feed removed.',
+    quickAddUndoFailed: 'Undo failed: {error}',
     manualNeedsRange: 'Please fill start and end for this type.',
     manualEndAfterStart: 'End must be after start.',
     manualSaved: 'Manual entry saved.',
@@ -660,6 +670,44 @@ function renderFeedOpenStatus() {
   if (feedProgressTextEl) {
     feedProgressTextEl.textContent = `${progressPercent}%`;
   }
+}
+
+function hideQuickAddBanner() {
+  if (quickAddUndoTimerId) {
+    clearTimeout(quickAddUndoTimerId);
+    quickAddUndoTimerId = null;
+  }
+
+  quickAddUndoEventId = null;
+  const banner = document.getElementById('quick-add-banner');
+  if (banner) {
+    banner.hidden = true;
+  }
+}
+
+function showQuickAddBanner(eventId, grams) {
+  hideQuickAddBanner();
+  quickAddUndoEventId = eventId;
+
+  const banner = document.getElementById('quick-add-banner');
+  const text = document.getElementById('quick-add-banner-text');
+  if (!banner || !text) return;
+
+  text.textContent = t('quickAddSaved', { grams });
+  banner.hidden = false;
+
+  quickAddUndoTimerId = setTimeout(() => {
+    hideQuickAddBanner();
+  }, 3000);
+}
+
+async function saveFeedEntry(amountG, note = '') {
+  const normalizedAmountG = Math.max(0, Math.floor(Number(amountG) || 0));
+  const result = await api('/api/feed', {
+    method: 'POST',
+    body: JSON.stringify({ note, amount_g: normalizedAmountG }),
+  });
+  return { id: result.id, amountG: normalizedAmountG };
 }
 
 function renderCurrentAloneStatus() {
@@ -1378,6 +1426,8 @@ function bindActions() {
   const exportCsvButton = document.getElementById('export-csv');
   const deleteLastButton = document.getElementById('delete-last');
   const deleteAllButton = document.getElementById('delete-all');
+  const quickAddBanner = document.getElementById('quick-add-banner');
+  const quickAddUndoButton = document.getElementById('quick-add-undo');
   const importAppendButton = document.getElementById('import-append');
   const importReplaceButton = document.getElementById('import-replace');
   const manualSaveButton = document.getElementById('manual-save');
@@ -1413,10 +1463,41 @@ function bindActions() {
 
   quickAddRow?.addEventListener('click', (event) => {
     const chip = event.target.closest('.chip-btn');
-    if (!chip || !feedAmountInput) return;
+    if (!chip) return;
     const gramValue = Number(chip.dataset.gram);
     if (!Number.isFinite(gramValue)) return;
-    feedAmountInput.value = String(gramValue);
+
+    const note = document.getElementById('feed-note').value.trim();
+    saveFeedEntry(gramValue, note)
+      .then(({ id, amountG }) => {
+        if (feedAmountInput) {
+          feedAmountInput.value = String(appSettings.defaultPortionG);
+        }
+        if (document.getElementById('feed-note')) {
+          document.getElementById('feed-note').value = '';
+        }
+        showQuickAddBanner(id, amountG);
+        refreshAll();
+      })
+      .catch((error) => {
+        alert(translateServerError(error.message));
+      });
+  });
+
+  quickAddUndoButton?.addEventListener('click', async () => {
+    if (!quickAddUndoEventId) return;
+
+    const eventId = quickAddUndoEventId;
+    hideQuickAddBanner();
+
+    try {
+      await api(`/api/events/${eventId}`, {
+        method: 'DELETE',
+      });
+      await refreshAll();
+    } catch (error) {
+      alert(translateServerError(error.message));
+    }
   });
 
   settingsSaveButton?.addEventListener('click', () => {
@@ -1500,14 +1581,12 @@ function bindActions() {
     const normalizedAmountG = Number.isFinite(amountG) ? Math.max(0, Math.floor(amountG)) : Math.max(0, appSettings.defaultPortionG);
 
     try {
-      await api('/api/feed', {
-        method: 'POST',
-        body: JSON.stringify({ note, amount_g: normalizedAmountG }),
-      });
+      await saveFeedEntry(normalizedAmountG, note);
       document.getElementById('feed-note').value = '';
       if (feedAmountInput) {
         feedAmountInput.value = String(appSettings.defaultPortionG);
       }
+      hideQuickAddBanner();
       await refreshAll();
     } catch (error) {
       alert(translateServerError(error.message));

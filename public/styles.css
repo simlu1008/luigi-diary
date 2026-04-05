@@ -71,6 +71,36 @@ h1 {
   color: var(--muted);
 }
 
+.undo-banner {
+  position: fixed;
+  left: 50%;
+  bottom: 16px;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: calc(100vw - 24px);
+  width: 420px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: rgba(17, 24, 39, 0.95);
+  color: #fff;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.24);
+  z-index: 50;
+}
+
+.undo-banner-button {
+  margin-left: auto;
+  border: none;
+  border-radius: 999px;
+  background: #fff;
+  color: #111827;
+  padding: 8px 12px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
 .top-bar {
   display: flex;
   justify-content: space-between;
@@ -256,6 +286,14 @@ h1 {
 }
 
 .end-walk-block {
+  display: grid;
+  gap: 8px;
+  border: 1px dashed var(--border);
+  border-radius: 10px;
+  padding: 10px;
+}
+
+.session-block {
   display: grid;
   gap: 8px;
   border: 1px dashed var(--border);

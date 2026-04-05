@@ -987,6 +987,29 @@ app.delete('/api/events/last', (_req, res) => {
   });
 });
 
+app.delete('/api/events/:id', (req, res) => {
+  const requestedId = Number(req.params.id);
+  if (!Number.isInteger(requestedId) || requestedId <= 0) {
+    return res.status(400).json({ error: 'Ungültige ID.' });
+  }
+
+  const store = readStore();
+  const index = store.events.findIndex((event) => event.id === requestedId);
+  if (index < 0) {
+    return res.status(404).json({ error: 'Eintrag nicht gefunden.' });
+  }
+
+  const [deletedEvent] = store.events.splice(index, 1);
+  const maxId = store.events.reduce((max, event) => Math.max(max, event.id), 0);
+  store.nextId = maxId + 1;
+  writeStore(store);
+
+  return res.json({
+    deleted: serializeEvent(deletedEvent),
+    remaining: store.events.length,
+  });
+});
+
 app.delete('/api/events', (_req, res) => {
   const store = readStore();
   const deletedCount = store.events.length;
