@@ -632,17 +632,34 @@ function renderEliminationStatus() {
 
 function renderFeedOpenStatus() {
   const feedOpenStatusEl = document.getElementById('feed-open-status');
+  const feedProgressWrapEl = document.getElementById('feed-progress-wrap');
+  const feedProgressBarEl = document.getElementById('feed-progress-bar');
+  const feedProgressTextEl = document.getElementById('feed-progress-text');
   if (!feedOpenStatusEl) return;
 
   const target = Math.max(0, appSettings.dailyTargetG || 0);
   const fed = Math.max(0, todayFedGrams || 0);
   if (target <= 0) {
     feedOpenStatusEl.textContent = t('statusFeedNoTarget', { fed });
+    if (feedProgressWrapEl) {
+      feedProgressWrapEl.style.display = 'none';
+    }
     return;
   }
 
   const remaining = Math.max(0, target - fed);
   feedOpenStatusEl.textContent = t('statusFeedOpen', { remaining, fed, target });
+
+  const progressPercent = Math.max(0, Math.min(100, Math.round((fed / target) * 100)));
+  if (feedProgressWrapEl) {
+    feedProgressWrapEl.style.display = 'grid';
+  }
+  if (feedProgressBarEl) {
+    feedProgressBarEl.style.width = `${progressPercent}%`;
+  }
+  if (feedProgressTextEl) {
+    feedProgressTextEl.textContent = `${progressPercent}%`;
+  }
 }
 
 function renderCurrentAloneStatus() {
