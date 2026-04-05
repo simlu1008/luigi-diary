@@ -118,6 +118,7 @@ function serializeEvent(event) {
     alone_start: event.aloneStart,
     alone_end: event.aloneEnd,
     alone_hours: event.type === 'alone' && Number.isFinite(event.durationMin) ? Number((event.durationMin / 60).toFixed(2)) : null,
+    feed_amount_g: event.feedAmountG,
     note: event.note,
   };
 }
@@ -171,6 +172,7 @@ function normalizeImportedEvent(rawEvent) {
   const aloneStart = toIsoOrNull(rawEvent.alone_start ?? rawEvent.aloneStart);
   const aloneEnd = toIsoOrNull(rawEvent.alone_end ?? rawEvent.aloneEnd);
   const durationMin = toIntegerOrNull(rawEvent.duration_min ?? rawEvent.durationMin);
+  const feedAmountG = toIntegerOrNull(rawEvent.feed_amount_g ?? rawEvent.feedAmountG ?? rawEvent.amount_g ?? rawEvent.amountG);
   const pipi = toBooleanOrNull(rawEvent.pipi);
   const pupu = toBooleanOrNull(rawEvent.pupu);
   const pipiAt = toIsoOrNull(rawEvent.pipi_at ?? rawEvent.pipiAt);
@@ -193,6 +195,7 @@ function normalizeImportedEvent(rawEvent) {
       sleepEnd: null,
       aloneStart: null,
       aloneEnd: null,
+      feedAmountG,
       note,
     };
   }
@@ -214,6 +217,7 @@ function normalizeImportedEvent(rawEvent) {
       sleepEnd,
       aloneStart: null,
       aloneEnd: null,
+      feedAmountG: null,
       note,
     };
   }
@@ -235,6 +239,7 @@ function normalizeImportedEvent(rawEvent) {
       sleepEnd: null,
       aloneStart,
       aloneEnd,
+      feedAmountG: null,
       note,
     };
   }
@@ -255,6 +260,7 @@ function normalizeImportedEvent(rawEvent) {
     sleepEnd: null,
     aloneStart: null,
     aloneEnd: null,
+    feedAmountG: null,
     note,
   };
 }
@@ -274,6 +280,7 @@ function eventFingerprint(event) {
     event.sleepEnd,
     event.aloneStart,
     event.aloneEnd,
+    event.feedAmountG,
     event.note,
   ].join('|');
 }
@@ -569,6 +576,7 @@ app.post('/api/walk/start', (req, res) => {
     sleepEnd: null,
     aloneStart: null,
     aloneEnd: null,
+    feedAmountG: null,
     note: note || null,
   };
 
@@ -621,6 +629,7 @@ app.post('/api/walk/end', (req, res) => {
 app.post('/api/feed', (req, res) => {
   const store = readStore();
   const note = typeof req.body?.note === 'string' ? req.body.note.trim() : '';
+  const amountG = toIntegerOrNull(req.body?.amount_g);
 
   const event = {
     type: 'feed',
@@ -636,6 +645,7 @@ app.post('/api/feed', (req, res) => {
     sleepEnd: null,
     aloneStart: null,
     aloneEnd: null,
+    feedAmountG: amountG,
     note: note || null,
   };
 
@@ -666,6 +676,7 @@ app.post('/api/sleep/start', (req, res) => {
     sleepEnd: null,
     aloneStart: null,
     aloneEnd: null,
+    feedAmountG: null,
     note: note || null,
   };
 
@@ -716,6 +727,7 @@ app.post('/api/alone/start', (req, res) => {
     sleepEnd: null,
     aloneStart: nowIso(),
     aloneEnd: null,
+    feedAmountG: null,
     note: note || null,
   };
 
@@ -771,6 +783,7 @@ app.post('/api/manual/event', (req, res) => {
       sleepEnd: null,
       aloneStart: null,
       aloneEnd: null,
+      feedAmountG: toIntegerOrNull(req.body?.amount_g),
       note,
     };
     const inserted = pushEvent(store, event);
@@ -799,6 +812,7 @@ app.post('/api/manual/event', (req, res) => {
       sleepEnd: null,
       aloneStart: null,
       aloneEnd: null,
+      feedAmountG: null,
       note,
     };
 
@@ -835,6 +849,7 @@ app.post('/api/manual/event', (req, res) => {
       sleepEnd: null,
       aloneStart,
       aloneEnd,
+      feedAmountG: null,
       note,
     };
 
@@ -861,6 +876,7 @@ app.post('/api/manual/event', (req, res) => {
     sleepEnd,
     aloneStart: null,
     aloneEnd: null,
+    feedAmountG: null,
     note,
   };
 
@@ -1015,6 +1031,7 @@ app.get('/api/export/csv', (_req, res) => {
     'duration_min',
     'sleep_hours',
     'alone_hours',
+    'feed_amount_g',
     'pipi',
     'pupu',
     'pipi_at',
@@ -1035,6 +1052,7 @@ app.get('/api/export/csv', (_req, res) => {
       event.duration_min,
       event.sleep_hours,
       event.alone_hours,
+      event.feed_amount_g,
       event.pipi,
       event.pupu,
       event.pipi_at,
@@ -1075,6 +1093,7 @@ app.get('/api/stats/today', (_req, res) => {
   );
 
   const totalWalkMinutes = walks.reduce((sum, event) => sum + (event.durationMin || 0), 0);
+  const totalFeedGrams = feeds.reduce((sum, event) => sum + (event.feedAmountG || 0), 0);
   const totalSleepMinutes = sleeps.reduce(
     (sum, event) => sum + minutesWithinRange(event.sleepStart, event.sleepEnd, todayStart.toISOString(), todayEnd.toISOString()),
     0
@@ -1085,6 +1104,7 @@ app.get('/api/stats/today', (_req, res) => {
   res.json({
     walks: walks.length,
     feeds: feeds.length,
+    totalFeedGrams,
     totalWalkMinutes,
     sleepSessions: sleeps.length,
     totalSleepHours: Number((totalSleepMinutes / 60).toFixed(2)),

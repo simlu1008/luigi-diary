@@ -14,19 +14,31 @@ async function api(path, options = {}) {
 const MINUTES_PER_DAY = 24 * 60;
 let currentRangeDays = 7;
 const LANGUAGE_STORAGE_KEY = 'luigi-language';
+const ACTIVE_TAB_STORAGE_KEY = 'luigi-active-tab';
+const SETTINGS_STORAGE_KEY = 'luigi-settings';
 const SUPPORTED_LANGUAGES = ['de', 'en'];
+const DEFAULT_SETTINGS = {
+  dailyTargetG: 300,
+  defaultPortionG: 50,
+  quickAddEnabled: true,
+};
 let currentLanguage = 'en';
+let currentTab = 'today';
+let appSettings = { ...DEFAULT_SETTINGS };
 let currentWalkPipiAt = null;
 let currentWalkPupuAt = null;
 let currentAloneStartedAt = null;
 let lastPipiDoneAt = null;
 let lastPupuDoneAt = null;
 let eliminationStatusIntervalId = null;
+let todayFedGrams = 0;
 
 const TRANSLATIONS = {
   de: {
     appTitle: '🐶 Luigi Diary',
     appSubtitle: 'Spaziergänge & Fütterung schnell vom Handy erfassen',
+    tabToday: 'Heute',
+    tabSettings: 'Einstellungen',
     languageLabel: 'Sprache',
     languageAria: 'Sprache wählen',
     headingStatus: 'Status',
@@ -37,10 +49,12 @@ const TRANSLATIONS = {
     headingManual: 'Manuell nachtragen',
     headingEvents: 'Letzte Einträge',
     headingData: 'Daten',
+    headingSettings: 'Einstellungen',
     labelPipi: 'Pipi gemacht',
     labelPupu: 'Pupu gemacht',
     walkNotePlaceholder: 'Notiz (optional)',
-    feedNotePlaceholder: 'Füttern-Notiz (z. B. 150g)',
+    feedNotePlaceholder: 'Füttern-Notiz (optional)',
+    feedAmountLabel: 'Menge',
     sleepNotePlaceholder: 'Schlaf-Notiz (optional)',
     buttonStartWalk: '🚶 Spaziergang starten',
     buttonEndWalk: '✅ Spaziergang beenden',
@@ -104,6 +118,8 @@ const TRANSLATIONS = {
     statusNoAlone: 'Aktuell nicht alleine.',
     statusLastPipi: 'Letztes Pipi: {since}',
     statusLastPupu: 'Letztes Pupu: {since}',
+    statusFeedOpen: 'Futter offen heute: {remaining} g ({fed}/{target} g)',
+    statusFeedNoTarget: 'Futter heute: {fed} g',
     statusNever: 'noch kein Eintrag',
     timeJustNow: 'gerade eben',
     timeMinutesAgo: 'vor {minutes} min',
@@ -111,7 +127,7 @@ const TRANSLATIONS = {
     timeHoursMinutesAgo: 'vor {hours} h {minutes} min',
     timeDaysAgo: 'vor {days} d',
     timeDaysHoursAgo: 'vor {days} d {hours} h',
-    eventFeed: '🍽️ Füttern · {time}{note}',
+    eventFeed: '🍽️ Füttern · {grams} g · {time}{note}',
     eventSleep: '😴 Schlaf · {start} bis {end} · {hours} h{note}',
     eventAlone: '🏠 Alleine · {start} bis {end} · {hours} h{note}',
     eventWalk: '🚶 Spaziergang · {start} · {minutes} min · {pipi}, {pupu}{note}',
@@ -137,6 +153,13 @@ const TRANSLATIONS = {
     downloadFailed: 'Download fehlgeschlagen',
     backupSaved: 'Backup gespeichert: {fileName}',
     backupFailed: 'Backup fehlgeschlagen: {error}',
+    settingsSubtitle: 'Tagesziel und Fütterungs-Defaults konfigurieren.',
+    settingsDailyTargetLabel: 'Futterziel pro Tag (g)',
+    settingsDefaultPortionLabel: 'Standard-Portion beim Füttern (g)',
+    settingsQuickAddLabel: 'Quick-Add Chips aktivieren (25g / 30g / 50g)',
+    buttonSaveSettings: '💾 Einstellungen speichern',
+    settingsSaved: 'Einstellungen gespeichert.',
+    settingsSaveFailed: 'Bitte gültige Werte eingeben.',
     manualNeedsRange: 'Bitte für diesen Typ Start und Ende ausfüllen.',
     manualEndAfterStart: 'Ende muss nach dem Start liegen.',
     manualSaved: 'Manueller Eintrag gespeichert.',
@@ -153,6 +176,8 @@ const TRANSLATIONS = {
   en: {
     appTitle: '🐶 Luigi Diary',
     appSubtitle: 'Quickly track walks and feeding from your phone',
+    tabToday: 'Today',
+    tabSettings: 'Settings',
     languageLabel: 'Language',
     languageAria: 'Choose language',
     headingStatus: 'Status',
@@ -163,10 +188,12 @@ const TRANSLATIONS = {
     headingManual: 'Manual Entry',
     headingEvents: 'Recent Entries',
     headingData: 'Data',
+    headingSettings: 'Settings',
     labelPipi: 'Pee done',
     labelPupu: 'Poop done',
     walkNotePlaceholder: 'Note (optional)',
-    feedNotePlaceholder: 'Feeding note (e.g. 150g)',
+    feedNotePlaceholder: 'Feeding note (optional)',
+    feedAmountLabel: 'Amount',
     sleepNotePlaceholder: 'Sleep note (optional)',
     buttonStartWalk: '🚶 Start walk',
     buttonEndWalk: '✅ End walk',
@@ -230,6 +257,8 @@ const TRANSLATIONS = {
     statusNoAlone: 'Currently not alone.',
     statusLastPipi: 'Last pee: {since}',
     statusLastPupu: 'Last poop: {since}',
+    statusFeedOpen: 'Feed remaining today: {remaining} g ({fed}/{target} g)',
+    statusFeedNoTarget: 'Feed today: {fed} g',
     statusNever: 'no entry yet',
     timeJustNow: 'just now',
     timeMinutesAgo: '{minutes} min ago',
@@ -237,7 +266,7 @@ const TRANSLATIONS = {
     timeHoursMinutesAgo: '{hours} h {minutes} min ago',
     timeDaysAgo: '{days} d ago',
     timeDaysHoursAgo: '{days} d {hours} h ago',
-    eventFeed: '🍽️ Feed · {time}{note}',
+    eventFeed: '🍽️ Feed · {grams} g · {time}{note}',
     eventSleep: '😴 Sleep · {start} to {end} · {hours} h{note}',
     eventAlone: '🏠 Alone · {start} to {end} · {hours} h{note}',
     eventWalk: '🚶 Walk · {start} · {minutes} min · {pipi}, {pupu}{note}',
@@ -263,6 +292,13 @@ const TRANSLATIONS = {
     downloadFailed: 'Download failed',
     backupSaved: 'Backup saved: {fileName}',
     backupFailed: 'Backup failed: {error}',
+    settingsSubtitle: 'Configure daily target and feeding defaults.',
+    settingsDailyTargetLabel: 'Feed target per day (g)',
+    settingsDefaultPortionLabel: 'Default portion for feeding (g)',
+    settingsQuickAddLabel: 'Enable quick-add chips (25g / 30g / 50g)',
+    buttonSaveSettings: '💾 Save settings',
+    settingsSaved: 'Settings saved.',
+    settingsSaveFailed: 'Please enter valid values.',
     manualNeedsRange: 'Please fill start and end for this type.',
     manualEndAfterStart: 'End must be after start.',
     manualSaved: 'Manual entry saved.',
@@ -333,6 +369,8 @@ function applyStaticTranslations() {
   document.title = 'Luigi Diary';
   setText('app-title', t('appTitle'));
   setText('app-subtitle', t('appSubtitle'));
+  setText('tab-today', t('tabToday'));
+  setText('tab-settings', t('tabSettings'));
   setText('language-label', t('languageLabel'));
   setText('heading-status', t('headingStatus'));
   setText('heading-actions', t('headingActions'));
@@ -342,8 +380,10 @@ function applyStaticTranslations() {
   setText('heading-manual', t('headingManual'));
   setText('heading-events', t('headingEvents'));
   setText('heading-data', t('headingData'));
+  setText('heading-settings', t('headingSettings'));
   setText('label-pipi', t('labelPipi'));
   setText('label-pupu', t('labelPupu'));
+  setText('feed-amount-label', t('feedAmountLabel'));
   setText('start-walk', t('buttonStartWalk'));
   setText('end-walk', t('buttonEndWalk'));
   setText('feed', t('buttonFeed'));
@@ -395,6 +435,11 @@ function applyStaticTranslations() {
   setText('import-append', t('buttonImportAppend'));
   setText('import-replace', t('buttonImportReplace'));
   setText('import-hint', t('importHint'));
+  setText('settings-subtitle', t('settingsSubtitle'));
+  setText('settings-daily-target-label', t('settingsDailyTargetLabel'));
+  setText('settings-default-portion-label', t('settingsDefaultPortionLabel'));
+  setText('settings-enable-quick-add-label', t('settingsQuickAddLabel'));
+  setText('settings-save', t('buttonSaveSettings'));
 
   setPlaceholder('walk-note', t('walkNotePlaceholder'));
   setPlaceholder('feed-note', t('feedNotePlaceholder'));
@@ -407,6 +452,7 @@ function applyStaticTranslations() {
   }
 
   renderEliminationStatus();
+  renderFeedOpenStatus();
 }
 
 function initLanguage() {
@@ -419,6 +465,72 @@ function initLanguage() {
   if (languageSelect) {
     languageSelect.value = currentLanguage;
   }
+}
+
+function loadAppSettings() {
+  try {
+    const raw = localStorage.getItem(SETTINGS_STORAGE_KEY);
+    if (!raw) {
+      appSettings = { ...DEFAULT_SETTINGS };
+      return;
+    }
+
+    const parsed = JSON.parse(raw);
+    appSettings = {
+      dailyTargetG: Number.isFinite(Number(parsed?.dailyTargetG)) ? Math.max(0, Math.floor(Number(parsed.dailyTargetG))) : DEFAULT_SETTINGS.dailyTargetG,
+      defaultPortionG: Number.isFinite(Number(parsed?.defaultPortionG)) ? Math.max(0, Math.floor(Number(parsed.defaultPortionG))) : DEFAULT_SETTINGS.defaultPortionG,
+      quickAddEnabled: parsed?.quickAddEnabled !== false,
+    };
+  } catch {
+    appSettings = { ...DEFAULT_SETTINGS };
+  }
+}
+
+function saveAppSettings() {
+  localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(appSettings));
+}
+
+function applySettingsToForm() {
+  const dailyTargetInput = document.getElementById('settings-daily-target-g');
+  const defaultPortionInput = document.getElementById('settings-default-portion-g');
+  const quickAddToggle = document.getElementById('settings-enable-quick-add');
+  const feedAmountInput = document.getElementById('feed-amount-g');
+
+  if (dailyTargetInput) dailyTargetInput.value = String(appSettings.dailyTargetG);
+  if (defaultPortionInput) defaultPortionInput.value = String(appSettings.defaultPortionG);
+  if (quickAddToggle) quickAddToggle.checked = appSettings.quickAddEnabled;
+  if (feedAmountInput && !feedAmountInput.value) feedAmountInput.value = String(appSettings.defaultPortionG);
+
+  applyQuickAddVisibility();
+  renderFeedOpenStatus();
+}
+
+function applyQuickAddVisibility() {
+  const quickAddRow = document.getElementById('feed-quick-add');
+  if (!quickAddRow) return;
+  quickAddRow.style.display = appSettings.quickAddEnabled ? 'flex' : 'none';
+}
+
+function initActiveTab() {
+  const saved = localStorage.getItem(ACTIVE_TAB_STORAGE_KEY);
+  if (saved === 'settings' || saved === 'today') {
+    currentTab = saved;
+  }
+}
+
+function setActiveTab(tabName) {
+  currentTab = tabName === 'settings' ? 'settings' : 'today';
+  localStorage.setItem(ACTIVE_TAB_STORAGE_KEY, currentTab);
+
+  const container = document.querySelector('.container');
+  if (container) {
+    container.classList.toggle('tab-settings-active', currentTab === 'settings');
+  }
+
+  const tabToday = document.getElementById('tab-today');
+  const tabSettings = document.getElementById('tab-settings');
+  if (tabToday) tabToday.classList.toggle('active', currentTab === 'today');
+  if (tabSettings) tabSettings.classList.toggle('active', currentTab === 'settings');
 }
 
 function parseTimestamp(value) {
@@ -518,6 +630,21 @@ function renderEliminationStatus() {
   pupuStatusEl.textContent = t('statusLastPupu', { since: formatElapsedSince(lastPupuDoneAt) });
 }
 
+function renderFeedOpenStatus() {
+  const feedOpenStatusEl = document.getElementById('feed-open-status');
+  if (!feedOpenStatusEl) return;
+
+  const target = Math.max(0, appSettings.dailyTargetG || 0);
+  const fed = Math.max(0, todayFedGrams || 0);
+  if (target <= 0) {
+    feedOpenStatusEl.textContent = t('statusFeedNoTarget', { fed });
+    return;
+  }
+
+  const remaining = Math.max(0, target - fed);
+  feedOpenStatusEl.textContent = t('statusFeedOpen', { remaining, fed, target });
+}
+
 function renderCurrentAloneStatus() {
   const aloneStatusEl = document.getElementById('alone-status');
   if (!aloneStatusEl) return;
@@ -548,7 +675,7 @@ function eventLabel(event) {
   const note = event.note ? t('notePrefix', { note: event.note }) : '';
 
   if (event.type === 'feed') {
-    return t('eventFeed', { time: formatDateTime(event.created_at), note });
+    return t('eventFeed', { grams: event.feed_amount_g ?? 0, time: formatDateTime(event.created_at), note });
   }
 
   if (event.type === 'sleep') {
@@ -1037,6 +1164,8 @@ async function refreshAll() {
   document.getElementById('walks').textContent = String(stats.walks);
   document.getElementById('feeds').textContent = String(stats.feeds);
   document.getElementById('minutes').textContent = String(stats.totalWalkMinutes);
+  todayFedGrams = Number(stats.totalFeedGrams ?? 0);
+  renderFeedOpenStatus();
   document.getElementById('sleep-hours').textContent = String(stats.totalSleepHours ?? 0);
   document.getElementById('sleep-sessions').textContent = String(stats.sleepSessions ?? 0);
   document.getElementById('pipi-count').textContent = String(stats.pipiCount);
@@ -1214,11 +1343,15 @@ async function submitManualEvent() {
 }
 
 function bindActions() {
+  const tabTodayButton = document.getElementById('tab-today');
+  const tabSettingsButton = document.getElementById('tab-settings');
   const startWalkButton = document.getElementById('start-walk');
   const endWalkButton = document.getElementById('end-walk');
   const pipiCheckbox = document.getElementById('pipi');
   const pupuCheckbox = document.getElementById('pupu');
   const feedButton = document.getElementById('feed');
+  const feedAmountInput = document.getElementById('feed-amount-g');
+  const quickAddRow = document.getElementById('feed-quick-add');
   const startSleepButton = document.getElementById('start-sleep');
   const endSleepButton = document.getElementById('end-sleep');
   const startAloneButton = document.getElementById('start-alone');
@@ -1236,6 +1369,11 @@ function bindActions() {
   const range30Button = document.getElementById('range-30');
   const deleteResultEl = document.getElementById('delete-result');
   const languageSelect = document.getElementById('language-select');
+  const settingsSaveButton = document.getElementById('settings-save');
+  const settingsResultEl = document.getElementById('settings-result');
+  const settingsDailyTargetInput = document.getElementById('settings-daily-target-g');
+  const settingsDefaultPortionInput = document.getElementById('settings-default-portion-g');
+  const settingsQuickAddToggle = document.getElementById('settings-enable-quick-add');
 
   updateManualFormVisibility();
   manualTypeSelect.addEventListener('change', updateManualFormVisibility);
@@ -1246,6 +1384,45 @@ function bindActions() {
     localStorage.setItem(LANGUAGE_STORAGE_KEY, currentLanguage);
     applyStaticTranslations();
     await refreshAll();
+  });
+
+  tabTodayButton?.addEventListener('click', () => {
+    setActiveTab('today');
+  });
+
+  tabSettingsButton?.addEventListener('click', () => {
+    setActiveTab('settings');
+  });
+
+  quickAddRow?.addEventListener('click', (event) => {
+    const chip = event.target.closest('.chip-btn');
+    if (!chip || !feedAmountInput) return;
+    const gramValue = Number(chip.dataset.gram);
+    if (!Number.isFinite(gramValue)) return;
+    feedAmountInput.value = String(gramValue);
+  });
+
+  settingsSaveButton?.addEventListener('click', () => {
+    const nextDailyTarget = Number(settingsDailyTargetInput?.value ?? NaN);
+    const nextDefaultPortion = Number(settingsDefaultPortionInput?.value ?? NaN);
+
+    if (!Number.isFinite(nextDailyTarget) || nextDailyTarget < 0 || !Number.isFinite(nextDefaultPortion) || nextDefaultPortion < 0) {
+      if (settingsResultEl) settingsResultEl.textContent = t('settingsSaveFailed');
+      return;
+    }
+
+    appSettings = {
+      dailyTargetG: Math.floor(nextDailyTarget),
+      defaultPortionG: Math.floor(nextDefaultPortion),
+      quickAddEnabled: settingsQuickAddToggle?.checked !== false,
+    };
+
+    saveAppSettings();
+    applySettingsToForm();
+    if (feedAmountInput) {
+      feedAmountInput.value = String(appSettings.defaultPortionG);
+    }
+    if (settingsResultEl) settingsResultEl.textContent = t('settingsSaved');
   });
 
   pipiCheckbox.addEventListener('change', () => {
@@ -1302,13 +1479,18 @@ function bindActions() {
 
   feedButton.addEventListener('click', async () => {
     const note = document.getElementById('feed-note').value.trim();
+    const amountG = Number(feedAmountInput?.value ?? NaN);
+    const normalizedAmountG = Number.isFinite(amountG) ? Math.max(0, Math.floor(amountG)) : Math.max(0, appSettings.defaultPortionG);
 
     try {
       await api('/api/feed', {
         method: 'POST',
-        body: JSON.stringify({ note }),
+        body: JSON.stringify({ note, amount_g: normalizedAmountG }),
       });
       document.getElementById('feed-note').value = '';
+      if (feedAmountInput) {
+        feedAmountInput.value = String(appSettings.defaultPortionG);
+      }
       await refreshAll();
     } catch (error) {
       alert(translateServerError(error.message));
@@ -1436,8 +1618,12 @@ function bindActions() {
 }
 
 initLanguage();
+loadAppSettings();
+initActiveTab();
 applyStaticTranslations();
 bindActions();
+applySettingsToForm();
+setActiveTab(currentTab);
 startEliminationStatusTicker();
 refreshAll().catch((error) => {
   alert(t('loadError', { error: error.message }));

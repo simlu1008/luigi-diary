@@ -22,16 +22,22 @@
         </label>
       </div>
 
-      <section class="card status-card">
+      <nav class="tab-nav" aria-label="Bereiche">
+        <button id="tab-today" class="tab-btn active" type="button">Heute</button>
+        <button id="tab-settings" class="tab-btn" type="button">Einstellungen</button>
+      </nav>
+
+      <section class="card status-card" data-tab="today">
         <h2 id="heading-status">Status</h2>
         <p id="walk-status">Lade Status…</p>
         <p id="sleep-status">Lade Schlafstatus…</p>
         <p id="alone-status">Lade Alone-Status…</p>
         <p id="last-pipi-status" class="status-mini-line">Letztes Pipi: noch kein Eintrag</p>
         <p id="last-pupu-status" class="status-mini-line">Letztes Pupu: noch kein Eintrag</p>
+        <p id="feed-open-status" class="status-mini-line">Futter offen heute: 0 g</p>
       </section>
 
-      <section class="card actions">
+      <section class="card actions" data-tab="today">
         <h2 id="heading-actions">Aktionen</h2>
         <button id="start-walk" class="btn btn-primary">🚶 Spaziergang starten</button>
 
@@ -42,8 +48,22 @@
           <button id="end-walk" class="btn btn-warning">✅ Spaziergang beenden</button>
         </div>
 
-        <input type="text" id="feed-note" placeholder="Füttern-Notiz (z. B. 150g)" />
-        <button id="feed" class="btn btn-success">🍽️ Gefüttert</button>
+        <div class="feed-block">
+          <div class="feed-input-row">
+            <label class="feed-amount-label" for="feed-amount-g" id="feed-amount-label">Menge</label>
+            <div class="feed-amount-field">
+              <input type="number" id="feed-amount-g" min="0" step="1" inputmode="numeric" placeholder="0" />
+              <span class="feed-unit">g</span>
+            </div>
+          </div>
+          <div id="feed-quick-add" class="quick-add-row">
+            <button type="button" class="chip-btn" data-gram="25">+25g</button>
+            <button type="button" class="chip-btn" data-gram="30">+30g</button>
+            <button type="button" class="chip-btn" data-gram="50">+50g</button>
+          </div>
+          <input type="text" id="feed-note" placeholder="Füttern-Notiz (optional)" />
+          <button id="feed" class="btn btn-success">🍽️ Gefüttert</button>
+        </div>
 
         <button id="start-sleep" class="btn btn-secondary">🌙 Schlafen gestartet</button>
         <input type="text" id="sleep-note" placeholder="Schlaf-Notiz (optional)" />
@@ -53,7 +73,7 @@
         <button id="end-alone" class="btn btn-dark">🤝 Wieder da</button>
       </section>
 
-      <section class="card stats">
+      <section class="card stats" data-tab="today">
         <h2 id="heading-today">Heute</h2>
         <div class="stats-grid">
           <div><strong id="walks">0</strong><span id="stat-walks-label">Spaziergänge</span></div>
@@ -66,7 +86,7 @@
         </div>
       </section>
 
-      <section class="card">
+      <section class="card" data-tab="today">
         <h2 id="heading-timeline">24h Zeitstrahl</h2>
         <p id="timeline-subtitle" class="timeline-subtitle">Ein Blick auf heute: Dauer draußen, Füttern, Pipi & Pupu.</p>
         <div id="timeline-track" class="timeline-track" aria-label="24h Zeitstrahl"></div>
@@ -87,7 +107,7 @@
         </div>
       </section>
 
-      <section class="card">
+      <section class="card" data-tab="today">
         <h2 id="heading-range">Zeitraum-Auswertung</h2>
         <p id="range-subtitle" class="timeline-subtitle">Tagesvergleich als 24h-Zeitstrahl pro Tag.</p>
         <div class="range-toggle">
@@ -104,7 +124,7 @@
         <div id="week-timelines" class="week-timelines"></div>
       </section>
 
-      <section class="card">
+      <section class="card" data-tab="today">
         <h2 id="heading-manual">Manuell nachtragen</h2>
         <p id="manual-subtitle" class="timeline-subtitle">Für alte Daten (z. B. gestern) kannst du Einträge mit Uhrzeit nachtragen.</p>
         <div class="manual-grid">
@@ -140,12 +160,12 @@
         <p id="manual-result" class="import-result" aria-live="polite"></p>
       </section>
 
-      <section class="card">
+      <section class="card" data-tab="today">
         <h2 id="heading-events">Letzte Einträge</h2>
         <ul id="events" class="events"></ul>
       </section>
 
-      <section class="card">
+      <section class="card" data-tab="today">
         <h2 id="heading-data">Daten</h2>
         <p id="data-subtitle" class="timeline-subtitle">Alle Einträge bleiben gespeichert und können exportiert werden.</p>
         <div class="export-actions">
@@ -169,6 +189,27 @@
           <p id="import-hint" class="timeline-subtitle">`Anhängen` ergänzt neue Einträge, `Ersetzen` überschreibt alles mit der Datei.</p>
           <p id="import-result" class="import-result" aria-live="polite"></p>
         </div>
+      </section>
+
+      <section class="card" data-tab="settings">
+        <h2 id="heading-settings">Einstellungen</h2>
+        <p id="settings-subtitle" class="timeline-subtitle">Tagesziel und Fütterungs-Defaults konfigurieren.</p>
+        <div class="settings-grid">
+          <label>
+            <span id="settings-daily-target-label">Futterziel pro Tag (g)</span>
+            <input id="settings-daily-target-g" type="number" min="0" step="1" inputmode="numeric" />
+          </label>
+          <label>
+            <span id="settings-default-portion-label">Standard-Portion beim Füttern (g)</span>
+            <input id="settings-default-portion-g" type="number" min="0" step="1" inputmode="numeric" />
+          </label>
+          <label class="settings-toggle">
+            <input id="settings-enable-quick-add" type="checkbox" />
+            <span id="settings-enable-quick-add-label">Quick-Add Chips aktivieren (25g / 30g / 50g)</span>
+          </label>
+        </div>
+        <button id="settings-save" class="btn btn-primary">💾 Einstellungen speichern</button>
+        <p id="settings-result" class="import-result" aria-live="polite"></p>
       </section>
     </main>
 
