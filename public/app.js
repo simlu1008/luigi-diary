@@ -33,6 +33,7 @@ let lastPupuDoneAt = null;
 let eliminationStatusIntervalId = null;
 let todayFedGrams = 0;
 let quickAddUndoTimerId = null;
+let quickAddUndoCountdownTimerId = null;
 let quickAddUndoEventId = null;
 
 const TRANSLATIONS = {
@@ -678,6 +679,11 @@ function hideQuickAddBanner() {
     quickAddUndoTimerId = null;
   }
 
+  if (quickAddUndoCountdownTimerId) {
+    clearInterval(quickAddUndoCountdownTimerId);
+    quickAddUndoCountdownTimerId = null;
+  }
+
   quickAddUndoEventId = null;
   const banner = document.getElementById('quick-add-banner');
   if (banner) {
@@ -697,8 +703,24 @@ function showQuickAddBanner(eventId, grams) {
 
   banner.dataset.eventId = String(eventId);
   banner.dataset.grams = String(grams);
-  text.textContent = t('quickAddSaved', { grams });
+  const seconds = 3;
+  const updateText = (remainingSeconds) => {
+    text.textContent = `${t('quickAddSaved', { grams })} · ${t('quickAddUndo')} (${remainingSeconds}s)`;
+  };
+
+  updateText(seconds);
   banner.hidden = false;
+
+  let remainingSeconds = seconds;
+  quickAddUndoCountdownTimerId = setInterval(() => {
+    remainingSeconds -= 1;
+    if (remainingSeconds <= 0) {
+      hideQuickAddBanner();
+      return;
+    }
+
+    updateText(remainingSeconds);
+  }, 1000);
 
   quickAddUndoTimerId = setTimeout(() => {
     hideQuickAddBanner();
