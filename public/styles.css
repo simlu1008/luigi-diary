@@ -93,12 +93,16 @@ h1 {
   margin-left: auto;
   border: none;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.96);
+  background: rgba(240, 253, 244, 0.95);
   color: #166534;
-  padding: 8px 12px;
-  font-size: 14px;
-  font-weight: 600;
+  padding: 6px 11px;
+  font-size: 13px;
+  font-weight: 500;
   cursor: pointer;
+}
+
+.undo-banner-button:hover {
+  background: rgba(220, 252, 231, 0.98);
 }
 
 .top-bar {
