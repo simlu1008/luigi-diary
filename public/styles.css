@@ -89,6 +89,10 @@ h1 {
   z-index: 50;
 }
 
+.undo-banner[hidden] {
+  display: none;
+}
+
 .undo-banner-button {
   margin-left: auto;
   border: none;

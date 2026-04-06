@@ -703,7 +703,7 @@ function showQuickAddBanner(eventId, grams) {
 
   banner.dataset.eventId = String(eventId);
   banner.dataset.grams = String(grams);
-  const seconds = 3;
+  const seconds = 5;
   const updateText = (remainingSeconds) => {
     text.textContent = `${t('quickAddSaved', { grams })} · ${t('quickAddUndo')} (${remainingSeconds}s)`;
   };
@@ -724,7 +724,7 @@ function showQuickAddBanner(eventId, grams) {
 
   quickAddUndoTimerId = setTimeout(() => {
     hideQuickAddBanner();
-  }, 3000);
+  }, 5000);
 }
 
 async function saveFeedEntry(amountG, note = '') {
