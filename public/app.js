@@ -681,6 +681,8 @@ function hideQuickAddBanner() {
   quickAddUndoEventId = null;
   const banner = document.getElementById('quick-add-banner');
   if (banner) {
+    delete banner.dataset.eventId;
+    delete banner.dataset.grams;
     banner.hidden = true;
   }
 }
@@ -693,6 +695,8 @@ function showQuickAddBanner(eventId, grams) {
   const text = document.getElementById('quick-add-banner-text');
   if (!banner || !text) return;
 
+  banner.dataset.eventId = String(eventId);
+  banner.dataset.grams = String(grams);
   text.textContent = t('quickAddSaved', { grams });
   banner.hidden = false;
 
@@ -1485,15 +1489,15 @@ function bindActions() {
   });
 
   quickAddUndoButton?.addEventListener('click', async () => {
-    if (!quickAddUndoEventId) return;
-
-    const eventId = quickAddUndoEventId;
-    hideQuickAddBanner();
+    const banner = document.getElementById('quick-add-banner');
+    const eventId = Number(banner?.dataset.eventId || quickAddUndoEventId);
+    if (!Number.isInteger(eventId) || eventId <= 0) return;
 
     try {
       await api(`/api/events/${eventId}`, {
         method: 'DELETE',
       });
+      hideQuickAddBanner();
       await refreshAll();
     } catch (error) {
       alert(translateServerError(error.message));
