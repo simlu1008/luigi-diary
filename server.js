@@ -1010,6 +1010,155 @@ app.delete('/api/events/:id', (req, res) => {
   });
 });
 
+app.patch('/api/events/:id', (req, res) => {
+  const requestedId = Number(req.params.id);
+  if (!Number.isInteger(requestedId) || requestedId <= 0) {
+    return res.status(400).json({ error: 'Ungültige ID.' });
+  }
+
+  if (!req.body || typeof req.body !== 'object' || Array.isArray(req.body)) {
+    return res.status(400).json({ error: 'Ungültige Daten.' });
+  }
+
+  const store = readStore();
+  const event = store.events.find((entry) => entry.id === requestedId);
+  if (!event) {
+    return res.status(404).json({ error: 'Eintrag nicht gefunden.' });
+  }
+
+  if (Object.prototype.hasOwnProperty.call(req.body, 'created_at')) {
+    const createdAt = makeIsoFromRequest(req.body.created_at);
+    if (!createdAt) {
+      return res.status(400).json({ error: 'Ungültiger Zeitpunkt.' });
+    }
+    event.createdAt = createdAt;
+  }
+
+  if (Object.prototype.hasOwnProperty.call(req.body, 'note')) {
+    if (typeof req.body.note !== 'string') {
+      return res.status(400).json({ error: 'Ungültige Notiz.' });
+    }
+    const trimmed = req.body.note.trim();
+    event.note = trimmed || null;
+  }
+
+  if (event.type === 'feed') {
+    if (Object.prototype.hasOwnProperty.call(req.body, 'amount_g')) {
+      const nextAmount = toIntegerOrNull(req.body.amount_g);
+      if (nextAmount === null && req.body.amount_g !== null && req.body.amount_g !== '') {
+        return res.status(400).json({ error: 'Ungültige Futtermenge.' });
+      }
+      event.feedAmountG = nextAmount;
+    }
+  }
+
+  if (event.type === 'walk') {
+    if (Object.prototype.hasOwnProperty.call(req.body, 'walk_start')) {
+      const walkStart = makeIsoFromRequest(req.body.walk_start);
+      if (!walkStart) {
+        return res.status(400).json({ error: 'Ungültiger Walk-Start.' });
+      }
+      event.walkStart = walkStart;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(req.body, 'walk_end')) {
+      const walkEnd = makeIsoFromRequest(req.body.walk_end);
+      if (!walkEnd) {
+        return res.status(400).json({ error: 'Ungültiges Walk-Ende.' });
+      }
+      event.walkEnd = walkEnd;
+    }
+
+    if (event.walkStart && event.walkEnd && new Date(event.walkEnd).getTime() < new Date(event.walkStart).getTime()) {
+      return res.status(400).json({ error: 'Walk-Ende muss nach Walk-Start liegen.' });
+    }
+
+    if (event.walkStart && event.walkEnd) {
+      event.durationMin = minutesBetween(event.walkStart, event.walkEnd);
+    }
+
+    if (Object.prototype.hasOwnProperty.call(req.body, 'pipi')) {
+      const pipi = toBooleanOrNull(req.body.pipi);
+      if (pipi === null) {
+        return res.status(400).json({ error: 'Ungültiger Pipi-Wert.' });
+      }
+      event.pipi = pipi;
+      event.pipiAt = pipi ? event.pipiAt || event.walkEnd : null;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(req.body, 'pupu')) {
+      const pupu = toBooleanOrNull(req.body.pupu);
+      if (pupu === null) {
+        return res.status(400).json({ error: 'Ungültiger Pupu-Wert.' });
+      }
+      event.pupu = pupu;
+      event.pupuAt = pupu ? event.pupuAt || event.walkEnd : null;
+    }
+
+    if (event.pipi && !event.pipiAt) {
+      event.pipiAt = event.walkEnd || nowIso();
+    }
+    if (event.pupu && !event.pupuAt) {
+      event.pupuAt = event.walkEnd || nowIso();
+    }
+  }
+
+  if (event.type === 'sleep') {
+    if (Object.prototype.hasOwnProperty.call(req.body, 'sleep_start')) {
+      const sleepStart = makeIsoFromRequest(req.body.sleep_start);
+      if (!sleepStart) {
+        return res.status(400).json({ error: 'Ungültiger Schlaf-Start.' });
+      }
+      event.sleepStart = sleepStart;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(req.body, 'sleep_end')) {
+      const sleepEnd = makeIsoFromRequest(req.body.sleep_end);
+      if (!sleepEnd) {
+        return res.status(400).json({ error: 'Ungültiges Schlaf-Ende.' });
+      }
+      event.sleepEnd = sleepEnd;
+    }
+
+    if (event.sleepStart && event.sleepEnd && new Date(event.sleepEnd).getTime() < new Date(event.sleepStart).getTime()) {
+      return res.status(400).json({ error: 'Schlaf-Ende muss nach Schlaf-Start liegen.' });
+    }
+
+    if (event.sleepStart && event.sleepEnd) {
+      event.durationMin = minutesBetween(event.sleepStart, event.sleepEnd);
+    }
+  }
+
+  if (event.type === 'alone') {
+    if (Object.prototype.hasOwnProperty.call(req.body, 'alone_start')) {
+      const aloneStart = makeIsoFromRequest(req.body.alone_start);
+      if (!aloneStart) {
+        return res.status(400).json({ error: 'Ungültiger Alleine-Start.' });
+      }
+      event.aloneStart = aloneStart;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(req.body, 'alone_end')) {
+      const aloneEnd = makeIsoFromRequest(req.body.alone_end);
+      if (!aloneEnd) {
+        return res.status(400).json({ error: 'Ungültiges Alleine-Ende.' });
+      }
+      event.aloneEnd = aloneEnd;
+    }
+
+    if (event.aloneStart && event.aloneEnd && new Date(event.aloneEnd).getTime() < new Date(event.aloneStart).getTime()) {
+      return res.status(400).json({ error: 'Alleine-Ende muss nach Alleine-Start liegen.' });
+    }
+
+    if (event.aloneStart && event.aloneEnd) {
+      event.durationMin = minutesBetween(event.aloneStart, event.aloneEnd);
+    }
+  }
+
+  writeStore(store);
+  return res.json(serializeEvent(event));
+});
+
 app.delete('/api/events', (_req, res) => {
   const store = readStore();
   const deletedCount = store.events.length;

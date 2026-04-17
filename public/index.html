@@ -174,32 +174,6 @@
         <ul id="events" class="events"></ul>
       </section>
 
-      <section class="card" data-tab="today">
-        <h2 id="heading-data">Daten</h2>
-        <p id="data-subtitle" class="timeline-subtitle">Alle Einträge bleiben gespeichert und können exportiert werden.</p>
-        <div class="export-actions">
-          <button id="backup-json" class="btn btn-primary">💾 Backup erstellen (JSON)</button>
-          <button id="export-json" class="btn btn-dark">⬇️ Export JSON</button>
-          <button id="export-csv" class="btn btn-dark">⬇️ Export CSV</button>
-        </div>
-        <p id="backup-result" class="import-result" aria-live="polite"></p>
-        <div class="delete-actions">
-          <button id="delete-last" class="btn btn-warning">↩️ Letzten Eintrag löschen</button>
-          <button id="delete-all" class="btn btn-danger">🗑️ Alle Daten löschen</button>
-        </div>
-        <p id="delete-hint" class="timeline-subtitle">Tipp: Vor dem Löschen zuerst ein Backup erstellen.</p>
-        <p id="delete-result" class="import-result" aria-live="polite"></p>
-        <div class="import-actions">
-          <input id="import-file" type="file" accept=".json,.csv" />
-          <div class="import-buttons">
-            <button id="import-append" class="btn btn-secondary">📥 Import anhängen</button>
-            <button id="import-replace" class="btn btn-danger">♻️ Import ersetzen</button>
-          </div>
-          <p id="import-hint" class="timeline-subtitle">`Anhängen` ergänzt neue Einträge, `Ersetzen` überschreibt alles mit der Datei.</p>
-          <p id="import-result" class="import-result" aria-live="polite"></p>
-        </div>
-      </section>
-
       <section class="card" data-tab="settings">
         <h2 id="heading-settings">Einstellungen</h2>
         <p id="settings-subtitle" class="timeline-subtitle">Tagesziel und Fütterungs-Defaults konfigurieren.</p>
@@ -219,6 +193,32 @@
         </div>
         <button id="settings-save" class="btn btn-primary">💾 Einstellungen speichern</button>
         <p id="settings-result" class="import-result" aria-live="polite"></p>
+
+        <section class="settings-subsection">
+          <h3 id="heading-data">Daten</h3>
+          <p id="data-subtitle" class="timeline-subtitle">Alle Einträge bleiben gespeichert und können exportiert werden.</p>
+          <div class="export-actions">
+            <button id="backup-json" class="btn btn-primary">💾 Backup erstellen (JSON)</button>
+            <button id="export-json" class="btn btn-dark">⬇️ Export JSON</button>
+            <button id="export-csv" class="btn btn-dark">⬇️ Export CSV</button>
+          </div>
+          <p id="backup-result" class="import-result" aria-live="polite"></p>
+          <div class="delete-actions">
+            <button id="delete-last" class="btn btn-warning">↩️ Letzten Eintrag löschen</button>
+            <button id="delete-all" class="btn btn-danger">🗑️ Alle Daten löschen</button>
+          </div>
+          <p id="delete-hint" class="timeline-subtitle">Tipp: Vor dem Löschen zuerst ein Backup erstellen.</p>
+          <p id="delete-result" class="import-result" aria-live="polite"></p>
+          <div class="import-actions">
+            <input id="import-file" type="file" accept=".json,.csv" />
+            <div class="import-buttons">
+              <button id="import-append" class="btn btn-secondary">📥 Import anhängen</button>
+              <button id="import-replace" class="btn btn-danger">♻️ Import ersetzen</button>
+            </div>
+            <p id="import-hint" class="timeline-subtitle">`Anhängen` ergänzt neue Einträge, `Ersetzen` überschreibt alles mit der Datei.</p>
+            <p id="import-result" class="import-result" aria-live="polite"></p>
+          </div>
+        </section>
       </section>
     </main>
 
@@ -226,6 +226,69 @@
       <span id="quick-add-banner-text"></span>
       <button id="quick-add-undo" type="button" class="undo-banner-button">Undo</button>
     </div>
+
+    <dialog id="edit-event-dialog" class="edit-dialog">
+      <form id="edit-event-form" class="edit-dialog-card">
+        <div class="edit-dialog-header">
+          <h3 id="edit-dialog-title">Eintrag bearbeiten</h3>
+          <button id="edit-dialog-close" type="button" class="edit-dialog-close" aria-label="Dialog schließen">×</button>
+        </div>
+        <p id="edit-dialog-subtitle" class="timeline-subtitle">Leere Felder bleiben unverändert.</p>
+        <input id="edit-event-id" type="hidden" />
+        <input id="edit-event-type" type="hidden" />
+
+        <div class="edit-grid">
+          <label>
+            <span id="edit-label-created">Zeitpunkt</span>
+            <input id="edit-created-at" type="datetime-local" />
+          </label>
+          <label class="edit-type-group edit-type-feed">
+            <span id="edit-label-amount">Menge (g)</span>
+            <input id="edit-amount-g" type="number" min="0" step="1" inputmode="numeric" />
+          </label>
+          <label class="edit-type-group edit-type-walk">
+            <span id="edit-label-walk-start">Walk Start</span>
+            <input id="edit-walk-start" type="datetime-local" />
+          </label>
+          <label class="edit-type-group edit-type-walk">
+            <span id="edit-label-walk-end">Walk Ende</span>
+            <input id="edit-walk-end" type="datetime-local" />
+          </label>
+          <label class="edit-type-group edit-type-walk">
+            <input id="edit-pipi" type="checkbox" /> <span id="edit-label-pipi">Pipi gemacht</span>
+          </label>
+          <label class="edit-type-group edit-type-walk">
+            <input id="edit-pupu" type="checkbox" /> <span id="edit-label-pupu">Pupu gemacht</span>
+          </label>
+          <label class="edit-type-group edit-type-sleep">
+            <span id="edit-label-sleep-start">Schlaf Start</span>
+            <input id="edit-sleep-start" type="datetime-local" />
+          </label>
+          <label class="edit-type-group edit-type-sleep">
+            <span id="edit-label-sleep-end">Schlaf Ende</span>
+            <input id="edit-sleep-end" type="datetime-local" />
+          </label>
+          <label class="edit-type-group edit-type-alone">
+            <span id="edit-label-alone-start">Alleine Start</span>
+            <input id="edit-alone-start" type="datetime-local" />
+          </label>
+          <label class="edit-type-group edit-type-alone">
+            <span id="edit-label-alone-end">Alleine Ende</span>
+            <input id="edit-alone-end" type="datetime-local" />
+          </label>
+          <label class="edit-note-row">
+            <span id="edit-label-note">Notiz</span>
+            <input id="edit-note" type="text" placeholder="z. B. ergänzt" />
+          </label>
+        </div>
+
+        <p id="edit-inline-error" class="inline-error" aria-live="polite"></p>
+        <div class="edit-dialog-actions">
+          <button id="edit-dialog-cancel" type="button" class="btn btn-secondary">Abbrechen</button>
+          <button id="edit-dialog-save" type="submit" class="btn btn-primary">Speichern</button>
+        </div>
+      </form>
+    </dialog>
 
     <script src="/app.js"></script>
   </body>

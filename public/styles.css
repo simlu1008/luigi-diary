@@ -489,6 +489,14 @@ input[type='text'] {
   font-size: 14px;
 }
 
+.settings-subsection {
+  margin-top: 18px;
+  padding-top: 18px;
+  border-top: 1px solid var(--border);
+  display: grid;
+  gap: 12px;
+}
+
 .settings-toggle {
   display: flex !important;
   align-items: center;
@@ -516,6 +524,10 @@ input[type='datetime-local'] {
   color: var(--danger);
   font-size: 13px;
   min-height: 18px;
+}
+
+.inline-error.is-success {
+  color: var(--success);
 }
 
 .is-invalid {
@@ -649,6 +661,95 @@ input[type='datetime-local'] {
   font-size: 14px;
 }
 
+.event-entry-content {
+  display: grid;
+  gap: 10px;
+}
+
+.event-entry-text {
+  line-height: 1.45;
+  word-break: break-word;
+}
+
+.event-entry-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.event-entry-button {
+  min-width: 96px;
+  padding-inline: 12px;
+}
+
+.edit-dialog {
+  border: none;
+  border-radius: 18px;
+  padding: 0;
+  width: min(92vw, 560px);
+  background: transparent;
+}
+
+.edit-dialog::backdrop {
+  background: rgba(15, 23, 42, 0.55);
+}
+
+.edit-dialog-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 16px;
+  display: grid;
+  gap: 14px;
+}
+
+.edit-dialog-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.edit-dialog-close {
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: #f3f4f6;
+  width: 36px;
+  height: 36px;
+  font-size: 20px;
+  line-height: 1;
+  color: var(--text);
+}
+
+.edit-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.edit-grid label,
+.edit-note-row {
+  display: grid;
+  gap: 6px;
+}
+
+.edit-note-row input,
+.edit-grid input[type='datetime-local'],
+.edit-grid input[type='number'],
+.edit-grid input[type='text'] {
+  width: 100%;
+}
+
+.edit-type-group[hidden] {
+  display: none !important;
+}
+
+.edit-dialog-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
 @media (min-width: 700px) {
   .stats-grid {
     grid-template-columns: repeat(7, minmax(90px, 1fr));
@@ -664,6 +765,14 @@ input[type='datetime-local'] {
 
   .manual-grid {
     grid-template-columns: repeat(2, minmax(180px, 1fr));
+  }
+
+  .edit-grid {
+    grid-template-columns: repeat(2, minmax(180px, 1fr));
+  }
+
+  .edit-note-row {
+    grid-column: span 2;
   }
 }
 

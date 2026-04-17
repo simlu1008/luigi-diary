@@ -35,6 +35,8 @@ let todayFedGrams = 0;
 let quickAddUndoTimerId = null;
 let quickAddUndoCountdownTimerId = null;
 let quickAddUndoEventId = null;
+let recentEventsCache = [];
+let editFeedbackTimeoutId = null;
 
 const TRANSLATIONS = {
   de: {
@@ -53,6 +55,28 @@ const TRANSLATIONS = {
     headingEvents: 'Letzte Einträge',
     headingData: 'Daten',
     headingSettings: 'Einstellungen',
+    buttonEditEntry: 'Bearbeiten',
+    buttonDeleteEntry: 'Löschen',
+    confirmDeleteEntry: 'Diesen Eintrag wirklich löschen?\n\n{entry}',
+    editDialogTitle: 'Eintrag bearbeiten',
+    editDialogSubtitle: 'Leere Felder bleiben unverändert.',
+    editDialogCloseAria: 'Dialog schließen',
+    editLabelCreated: 'Zeitpunkt',
+    editLabelAmount: 'Menge (g)',
+    editLabelWalkStart: 'Walk Start',
+    editLabelWalkEnd: 'Walk Ende',
+    editLabelPipi: 'Pipi gemacht',
+    editLabelPupu: 'Pupu gemacht',
+    editLabelSleepStart: 'Schlaf Start',
+    editLabelSleepEnd: 'Schlaf Ende',
+    editLabelAloneStart: 'Alleine Start',
+    editLabelAloneEnd: 'Alleine Ende',
+    editLabelNote: 'Notiz',
+    editPlaceholderNote: 'z. B. ergänzt',
+    editSave: 'Speichern',
+    editCancel: 'Abbrechen',
+    editSaved: 'Eintrag gespeichert.',
+    editSaveFailed: 'Speichern fehlgeschlagen: {error}',
     labelPipi: 'Pipi gemacht',
     labelPupu: 'Pupu gemacht',
     walkNotePlaceholder: 'Notiz (optional)',
@@ -196,6 +220,28 @@ const TRANSLATIONS = {
     headingEvents: 'Recent Entries',
     headingData: 'Data',
     headingSettings: 'Settings',
+    buttonEditEntry: 'Edit',
+    buttonDeleteEntry: 'Delete',
+    confirmDeleteEntry: 'Delete this entry?\n\n{entry}',
+    editDialogTitle: 'Edit entry',
+    editDialogSubtitle: 'Empty fields stay unchanged.',
+    editDialogCloseAria: 'Close dialog',
+    editLabelCreated: 'Timestamp',
+    editLabelAmount: 'Amount (g)',
+    editLabelWalkStart: 'Walk start',
+    editLabelWalkEnd: 'Walk end',
+    editLabelPipi: 'Pee done',
+    editLabelPupu: 'Poop done',
+    editLabelSleepStart: 'Sleep start',
+    editLabelSleepEnd: 'Sleep end',
+    editLabelAloneStart: 'Alone start',
+    editLabelAloneEnd: 'Alone end',
+    editLabelNote: 'Note',
+    editPlaceholderNote: 'e.g. added later',
+    editSave: 'Save',
+    editCancel: 'Cancel',
+    editSaved: 'Entry saved.',
+    editSaveFailed: 'Save failed: {error}',
     labelPipi: 'Pee done',
     labelPupu: 'Poop done',
     walkNotePlaceholder: 'Note (optional)',
@@ -392,6 +438,19 @@ function applyStaticTranslations() {
   setText('heading-events', t('headingEvents'));
   setText('heading-data', t('headingData'));
   setText('heading-settings', t('headingSettings'));
+  setText('edit-dialog-title', t('editDialogTitle'));
+  setText('edit-dialog-subtitle', t('editDialogSubtitle'));
+  setText('edit-label-created', t('editLabelCreated'));
+  setText('edit-label-amount', t('editLabelAmount'));
+  setText('edit-label-walk-start', t('editLabelWalkStart'));
+  setText('edit-label-walk-end', t('editLabelWalkEnd'));
+  setText('edit-label-pipi', t('editLabelPipi'));
+  setText('edit-label-pupu', t('editLabelPupu'));
+  setText('edit-label-sleep-start', t('editLabelSleepStart'));
+  setText('edit-label-sleep-end', t('editLabelSleepEnd'));
+  setText('edit-label-alone-start', t('editLabelAloneStart'));
+  setText('edit-label-alone-end', t('editLabelAloneEnd'));
+  setText('edit-label-note', t('editLabelNote'));
   setText('label-pipi', t('labelPipi'));
   setText('label-pupu', t('labelPupu'));
   setText('feed-amount-label', t('feedAmountLabel'));
@@ -451,11 +510,17 @@ function applyStaticTranslations() {
   setText('settings-default-portion-label', t('settingsDefaultPortionLabel'));
   setText('settings-enable-quick-add-label', t('settingsQuickAddLabel'));
   setText('settings-save', t('buttonSaveSettings'));
+  setText('edit-dialog-save', t('editSave'));
+  setText('edit-dialog-cancel', t('editCancel'));
 
   setPlaceholder('walk-note', t('walkNotePlaceholder'));
   setPlaceholder('feed-note', t('feedNotePlaceholder'));
   setPlaceholder('sleep-note', t('sleepNotePlaceholder'));
   setPlaceholder('manual-note', t('manualNotePlaceholder'));
+  setPlaceholder('edit-note', t('editPlaceholderNote'));
+
+  const editDialogClose = document.getElementById('edit-dialog-close');
+  if (editDialogClose) editDialogClose.setAttribute('aria-label', t('editDialogCloseAria'));
 
   const languageSelect = document.getElementById('language-select');
   if (languageSelect) {
@@ -553,6 +618,13 @@ function parseTimestamp(value) {
   if (!Number.isNaN(withUtcSuffix.getTime())) return withUtcSuffix;
 
   return null;
+}
+
+function formatDateTimeForInput(value) {
+  const date = parseTimestamp(value);
+  if (!date) return '';
+  const offsetMinutes = date.getTimezoneOffset();
+  return new Date(date.getTime() - offsetMinutes * 60000).toISOString().slice(0, 16);
 }
 
 function localDayKey(date) {
@@ -799,6 +871,137 @@ function eventLabel(event) {
     pupu,
     note,
   });
+}
+
+function setEditDialogFieldVisibility(type) {
+  const groups = document.querySelectorAll('.edit-type-group');
+  groups.forEach((group) => {
+    group.hidden = true;
+  });
+
+  const visibleSelectors = {
+    feed: ['.edit-type-feed'],
+    walk: ['.edit-type-walk'],
+    sleep: ['.edit-type-sleep'],
+    alone: ['.edit-type-alone'],
+  };
+
+  for (const selector of visibleSelectors[type] || []) {
+    document.querySelectorAll(selector).forEach((group) => {
+      group.hidden = false;
+    });
+  }
+}
+
+function closeEditDialog() {
+  const dialog = document.getElementById('edit-event-dialog');
+  if (dialog?.open) {
+    dialog.close();
+  }
+
+  if (editFeedbackTimeoutId) {
+    clearTimeout(editFeedbackTimeoutId);
+    editFeedbackTimeoutId = null;
+  }
+
+  const inlineErrorEl = document.getElementById('edit-inline-error');
+  if (inlineErrorEl) {
+    inlineErrorEl.textContent = '';
+    inlineErrorEl.classList.remove('is-success');
+  }
+}
+
+function openEditDialog(event) {
+  const dialog = document.getElementById('edit-event-dialog');
+  if (!dialog) return;
+
+  document.getElementById('edit-event-id').value = String(event.id);
+  document.getElementById('edit-event-type').value = event.type;
+  document.getElementById('edit-inline-error').textContent = '';
+  document.getElementById('edit-created-at').value = formatDateTimeForInput(event.created_at);
+  document.getElementById('edit-amount-g').value = event.feed_amount_g ?? '';
+  document.getElementById('edit-walk-start').value = formatDateTimeForInput(event.walk_start);
+  document.getElementById('edit-walk-end').value = formatDateTimeForInput(event.walk_end);
+  document.getElementById('edit-pipi').checked = Boolean(event.pipi);
+  document.getElementById('edit-pupu').checked = Boolean(event.pupu);
+  document.getElementById('edit-sleep-start').value = formatDateTimeForInput(event.sleep_start);
+  document.getElementById('edit-sleep-end').value = formatDateTimeForInput(event.sleep_end);
+  document.getElementById('edit-alone-start').value = formatDateTimeForInput(event.alone_start);
+  document.getElementById('edit-alone-end').value = formatDateTimeForInput(event.alone_end);
+  document.getElementById('edit-note').value = event.note || '';
+
+  setEditDialogFieldVisibility(event.type);
+
+  if (typeof dialog.showModal === 'function') {
+    dialog.showModal();
+  } else {
+    dialog.setAttribute('open', '');
+  }
+}
+
+function buildEditPayload() {
+  const eventType = document.getElementById('edit-event-type').value;
+  const payload = {
+    note: document.getElementById('edit-note').value.trim(),
+  };
+
+  const createdAtValue = document.getElementById('edit-created-at').value.trim();
+  if (createdAtValue) payload.created_at = createdAtValue;
+
+  if (eventType === 'feed') {
+    const amountValue = document.getElementById('edit-amount-g').value.trim();
+    if (amountValue !== '') payload.amount_g = Number(amountValue);
+    return payload;
+  }
+
+  if (eventType === 'walk') {
+    const walkStartValue = document.getElementById('edit-walk-start').value.trim();
+    const walkEndValue = document.getElementById('edit-walk-end').value.trim();
+    if (walkStartValue) payload.walk_start = walkStartValue;
+    if (walkEndValue) payload.walk_end = walkEndValue;
+    payload.pipi = document.getElementById('edit-pipi').checked;
+    payload.pupu = document.getElementById('edit-pupu').checked;
+    return payload;
+  }
+
+  if (eventType === 'sleep') {
+    const sleepStartValue = document.getElementById('edit-sleep-start').value.trim();
+    const sleepEndValue = document.getElementById('edit-sleep-end').value.trim();
+    if (sleepStartValue) payload.sleep_start = sleepStartValue;
+    if (sleepEndValue) payload.sleep_end = sleepEndValue;
+    return payload;
+  }
+
+  if (eventType === 'alone') {
+    const aloneStartValue = document.getElementById('edit-alone-start').value.trim();
+    const aloneEndValue = document.getElementById('edit-alone-end').value.trim();
+    if (aloneStartValue) payload.alone_start = aloneStartValue;
+    if (aloneEndValue) payload.alone_end = aloneEndValue;
+    return payload;
+  }
+
+  return payload;
+}
+
+function showEditFeedback(message, variant = 'error') {
+  const inlineErrorEl = document.getElementById('edit-inline-error');
+  if (!inlineErrorEl) return;
+
+  if (editFeedbackTimeoutId) {
+    clearTimeout(editFeedbackTimeoutId);
+    editFeedbackTimeoutId = null;
+  }
+
+  inlineErrorEl.textContent = message;
+  inlineErrorEl.classList.toggle('is-success', variant === 'success');
+
+  if (variant === 'success') {
+    editFeedbackTimeoutId = setTimeout(() => {
+      inlineErrorEl.textContent = '';
+      inlineErrorEl.classList.remove('is-success');
+      editFeedbackTimeoutId = null;
+    }, 2400);
+  }
 }
 
 function createTimelineMarker({ minute, cssClass, title }) {
@@ -1264,9 +1467,37 @@ async function refreshAll() {
 
   const eventsList = document.getElementById('events');
   eventsList.innerHTML = '';
-  for (const event of events.slice(0, 30)) {
+  recentEventsCache = events.slice(0, 30);
+  for (const event of recentEventsCache) {
     const li = document.createElement('li');
-    li.textContent = eventLabel(event);
+    const content = document.createElement('div');
+    content.className = 'event-entry-content';
+
+    const text = document.createElement('div');
+    text.className = 'event-entry-text';
+    text.textContent = eventLabel(event);
+    content.appendChild(text);
+
+    const actions = document.createElement('div');
+    actions.className = 'event-entry-actions';
+
+    const editButton = document.createElement('button');
+    editButton.type = 'button';
+    editButton.className = 'btn btn-secondary event-entry-button';
+    editButton.dataset.action = 'edit-event';
+    editButton.dataset.eventId = String(event.id);
+    editButton.textContent = t('buttonEditEntry');
+
+    const deleteButton = document.createElement('button');
+    deleteButton.type = 'button';
+    deleteButton.className = 'btn btn-danger event-entry-button';
+    deleteButton.dataset.action = 'delete-event';
+    deleteButton.dataset.eventId = String(event.id);
+    deleteButton.textContent = t('buttonDeleteEntry');
+
+    actions.append(editButton, deleteButton);
+    content.appendChild(actions);
+    li.appendChild(content);
     eventsList.appendChild(li);
   }
 
@@ -1467,6 +1698,11 @@ function bindActions() {
   const settingsDailyTargetInput = document.getElementById('settings-daily-target-g');
   const settingsDefaultPortionInput = document.getElementById('settings-default-portion-g');
   const settingsQuickAddToggle = document.getElementById('settings-enable-quick-add');
+  const eventsList = document.getElementById('events');
+  const editEventDialog = document.getElementById('edit-event-dialog');
+  const editEventForm = document.getElementById('edit-event-form');
+  const editDialogCloseButton = document.getElementById('edit-dialog-close');
+  const editDialogCancelButton = document.getElementById('edit-dialog-cancel');
 
   updateManualFormVisibility();
   manualTypeSelect.addEventListener('change', updateManualFormVisibility);
@@ -1523,6 +1759,67 @@ function bindActions() {
       await refreshAll();
     } catch (error) {
       alert(translateServerError(error.message));
+    }
+  });
+
+  eventsList?.addEventListener('click', async (event) => {
+    const button = event.target.closest('button[data-action]');
+    if (!button) return;
+
+    const eventId = Number(button.dataset.eventId);
+    if (!Number.isInteger(eventId) || eventId <= 0) return;
+
+    const selectedEvent = recentEventsCache.find((entry) => entry.id === eventId);
+    if (!selectedEvent) return;
+
+    if (button.dataset.action === 'edit-event') {
+      openEditDialog(selectedEvent);
+      return;
+    }
+
+    if (button.dataset.action === 'delete-event') {
+      const confirmed = window.confirm(t('confirmDeleteEntry', { entry: eventLabel(selectedEvent) }));
+      if (!confirmed) return;
+
+      try {
+        await api(`/api/events/${eventId}`, { method: 'DELETE' });
+        await refreshAll();
+      } catch (error) {
+        alert(translateServerError(error.message));
+      }
+    }
+  });
+
+  editEventDialog?.addEventListener('click', (event) => {
+    if (event.target === editEventDialog) {
+      closeEditDialog();
+    }
+  });
+
+  editDialogCloseButton?.addEventListener('click', closeEditDialog);
+  editDialogCancelButton?.addEventListener('click', closeEditDialog);
+
+  editEventForm?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+
+    const eventId = Number(document.getElementById('edit-event-id').value);
+    if (!Number.isInteger(eventId) || eventId <= 0) return;
+
+    showEditFeedback('');
+
+    try {
+      const payload = buildEditPayload();
+      await api(`/api/events/${eventId}`, {
+        method: 'PATCH',
+        body: JSON.stringify(payload),
+      });
+      await refreshAll();
+      showEditFeedback(t('editSaved'), 'success');
+      setTimeout(() => {
+        closeEditDialog();
+      }, 500);
+    } catch (error) {
+      showEditFeedback(t('editSaveFailed', { error: translateServerError(error.message) }));
     }
   });
 
