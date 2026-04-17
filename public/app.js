@@ -1,3 +1,55 @@
+// --- Futter-Akkordeon und Futtermengenberechnung ---
+function setupFoodAccordion() {
+  const btn = document.getElementById('food-accordion-btn-1');
+  const panel = document.getElementById('food-accordion-panel-1');
+  const amountEl = document.getElementById('food-recommendation-amount');
+  if (!btn || !panel || !amountEl) return;
+
+  btn.addEventListener('click', () => {
+    const expanded = btn.getAttribute('aria-expanded') === 'true';
+    btn.setAttribute('aria-expanded', String(!expanded));
+    panel.hidden = expanded;
+    if (!expanded) {
+      // Beim Öffnen: Menge berechnen und anzeigen
+      amountEl.innerHTML = renderFoodAmountRecommendation();
+    }
+  });
+}
+
+function renderFoodAmountRecommendation() {
+  // Nutze Settings: birthDate, currentWeightKg, dailyTargetG
+  const birthDate = appSettings.birthDate;
+  const weight = appSettings.currentWeightKg;
+  if (!birthDate || !weight) {
+    return '<span style="color:#b00">Bitte Geburtsdatum und aktuelles Gewicht in den Einstellungen angeben.</span>';
+  }
+  const today = new Date();
+  const birth = new Date(birthDate);
+  const months = (today.getFullYear() - birth.getFullYear()) * 12 + (today.getMonth() - birth.getMonth());
+  // Tabelle: 2-4-6-9-12 Monate, Gewicht in kg
+  // Werte aus den Bildern (siehe Mapping unten)
+  const feedingTable = [
+    // Monat: [kg2, kg3, kg5, kg7.5, kg10, kg15]
+    { m: 2, v: [40, 55, 85, 105, 135, 175] },
+    { m: 3, v: [50, 55, 95, 125, 155, 210] },
+    { m: 4, v: [50, 70, 105, 135, 170, 225] },
+    { m: 6, v: [55, 75, 105, 145, 180, 250] },
+    { m: 9, v: [55, 70, 105, 145, 180, 250] },
+    { m: 12, v: [50, 70, 105, 140, 175, 250] },
+  ];
+  // Finde nächste Zeile
+  let row = feedingTable.findLast(r => months >= r.m) || feedingTable[0];
+  // Finde Spalte
+  const weights = [2, 3, 5, 7.5, 10, 15];
+  let col = weights.findIndex(w => weight <= w);
+  if (col === -1) col = weights.length - 1;
+  const rec = row.v[col];
+  return `<b>Empfohlene Tagesmenge:</b> ${rec} g (Alter: ${months} Monate, Gewicht: ${weight} kg)`;
+}
+// --- Setup Food Accordion nach DOM laden ---
+document.addEventListener('DOMContentLoaded', () => {
+  setupFoodAccordion();
+});
 async function api(path, options = {}) {
   const response = await fetch(path, {
     headers: { 'Content-Type': 'application/json' },
@@ -21,6 +73,8 @@ const DEFAULT_SETTINGS = {
   dailyTargetG: 300,
   defaultPortionG: 50,
   quickAddEnabled: true,
+  birthDate: '',
+  currentWeightKg: null,
 };
 let currentLanguage = 'en';
 let currentTab = 'today';
@@ -185,10 +239,14 @@ const TRANSLATIONS = {
     settingsSubtitle: 'Tagesziel und Fütterungs-Defaults konfigurieren.',
     settingsDailyTargetLabel: 'Futterziel pro Tag (g)',
     settingsDefaultPortionLabel: 'Standard-Portion beim Füttern (g)',
+    settingsBirthDateLabel: 'Geburtsdatum',
+    settingsWeightLabel: 'Aktuelles Gewicht (kg)',
     settingsQuickAddLabel: 'Quick-Add Chips aktivieren (25g / 30g / 50g)',
     buttonSaveSettings: '💾 Einstellungen speichern',
     settingsSaved: 'Einstellungen gespeichert.',
     settingsSaveFailed: 'Bitte gültige Werte eingeben.',
+    settingsBirthDateInvalid: 'Bitte ein gültiges Geburtsdatum eingeben (nicht in der Zukunft).',
+    settingsWeightInvalid: 'Bitte ein gültiges Gewicht eingeben (> 0).',
     quickAddSaved: '✓ {grams} g gespeichert',
     quickAddUndo: 'Rückgängig',
     quickAddUndone: 'Fütterung rückgängig gemacht.',
@@ -352,10 +410,14 @@ const TRANSLATIONS = {
     settingsSubtitle: 'Configure daily target and feeding defaults.',
     settingsDailyTargetLabel: 'Feed target per day (g)',
     settingsDefaultPortionLabel: 'Default portion for feeding (g)',
+    settingsBirthDateLabel: 'Birth date',
+    settingsWeightLabel: 'Current weight (kg)',
     settingsQuickAddLabel: 'Enable quick-add chips (25g / 30g / 50g)',
     buttonSaveSettings: '💾 Save settings',
     settingsSaved: 'Settings saved.',
     settingsSaveFailed: 'Please enter valid values.',
+    settingsBirthDateInvalid: 'Please enter a valid birth date (not in the future).',
+    settingsWeightInvalid: 'Please enter a valid weight (> 0).',
     quickAddSaved: '✓ {grams} g saved',
     quickAddUndo: 'Undo',
     quickAddUndone: 'Feed removed.',
@@ -512,6 +574,8 @@ function applyStaticTranslations() {
   setText('settings-subtitle', t('settingsSubtitle'));
   setText('settings-daily-target-label', t('settingsDailyTargetLabel'));
   setText('settings-default-portion-label', t('settingsDefaultPortionLabel'));
+  setText('settings-birth-date-label', t('settingsBirthDateLabel'));
+  setText('settings-weight-label', t('settingsWeightLabel'));
   setText('settings-enable-quick-add-label', t('settingsQuickAddLabel'));
   setText('settings-save', t('buttonSaveSettings'));
   setText('edit-dialog-save', t('editSave'));
@@ -556,10 +620,17 @@ function loadAppSettings() {
     }
 
     const parsed = JSON.parse(raw);
+    const birthDateRaw = typeof parsed?.birthDate === 'string' ? parsed.birthDate.trim() : '';
+    const birthDate = /^\d{4}-\d{2}-\d{2}$/.test(birthDateRaw) ? birthDateRaw : '';
+    const parsedWeightNumber = Number(parsed?.currentWeightKg);
+    const currentWeightKg = Number.isFinite(parsedWeightNumber) && parsedWeightNumber > 0 ? Number(parsedWeightNumber.toFixed(1)) : null;
+
     appSettings = {
       dailyTargetG: Number.isFinite(Number(parsed?.dailyTargetG)) ? Math.max(0, Math.floor(Number(parsed.dailyTargetG))) : DEFAULT_SETTINGS.dailyTargetG,
       defaultPortionG: Number.isFinite(Number(parsed?.defaultPortionG)) ? Math.max(0, Math.floor(Number(parsed.defaultPortionG))) : DEFAULT_SETTINGS.defaultPortionG,
       quickAddEnabled: parsed?.quickAddEnabled !== false,
+      birthDate,
+      currentWeightKg,
     };
   } catch {
     appSettings = { ...DEFAULT_SETTINGS };
@@ -573,11 +644,15 @@ function saveAppSettings() {
 function applySettingsToForm() {
   const dailyTargetInput = document.getElementById('settings-daily-target-g');
   const defaultPortionInput = document.getElementById('settings-default-portion-g');
+  const birthDateInput = document.getElementById('settings-birth-date');
+  const weightInput = document.getElementById('settings-weight-kg');
   const quickAddToggle = document.getElementById('settings-enable-quick-add');
   const feedAmountInput = document.getElementById('feed-amount-g');
 
   if (dailyTargetInput) dailyTargetInput.value = String(appSettings.dailyTargetG);
   if (defaultPortionInput) defaultPortionInput.value = String(appSettings.defaultPortionG);
+  if (birthDateInput) birthDateInput.value = appSettings.birthDate || '';
+  if (weightInput) weightInput.value = appSettings.currentWeightKg === null ? '' : String(appSettings.currentWeightKg);
   if (quickAddToggle) quickAddToggle.checked = appSettings.quickAddEnabled;
   if (feedAmountInput && !feedAmountInput.value) feedAmountInput.value = String(appSettings.defaultPortionG);
 
@@ -589,6 +664,13 @@ function applyQuickAddVisibility() {
   const quickAddRow = document.getElementById('feed-quick-add');
   if (!quickAddRow) return;
   quickAddRow.style.display = appSettings.quickAddEnabled ? 'flex' : 'none';
+}
+
+function toLocalDateInputValue(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }
 
 function initActiveTab() {
@@ -1705,6 +1787,8 @@ function bindActions() {
   const settingsResultEl = document.getElementById('settings-result');
   const settingsDailyTargetInput = document.getElementById('settings-daily-target-g');
   const settingsDefaultPortionInput = document.getElementById('settings-default-portion-g');
+  const settingsBirthDateInput = document.getElementById('settings-birth-date');
+  const settingsWeightInput = document.getElementById('settings-weight-kg');
   const settingsQuickAddToggle = document.getElementById('settings-enable-quick-add');
   const eventsList = document.getElementById('events');
   const editEventDialog = document.getElementById('edit-event-dialog');
@@ -1834,9 +1918,26 @@ function bindActions() {
   settingsSaveButton?.addEventListener('click', () => {
     const nextDailyTarget = Number(settingsDailyTargetInput?.value ?? NaN);
     const nextDefaultPortion = Number(settingsDefaultPortionInput?.value ?? NaN);
+    const nextBirthDate = String(settingsBirthDateInput?.value ?? '').trim();
+    const nextWeightRaw = String(settingsWeightInput?.value ?? '').trim();
+    const nextWeight = nextWeightRaw === '' ? null : Number(nextWeightRaw);
 
     if (!Number.isFinite(nextDailyTarget) || nextDailyTarget < 0 || !Number.isFinite(nextDefaultPortion) || nextDefaultPortion < 0) {
       if (settingsResultEl) settingsResultEl.textContent = t('settingsSaveFailed');
+      return;
+    }
+
+    if (nextBirthDate) {
+      const hasValidFormat = /^\d{4}-\d{2}-\d{2}$/.test(nextBirthDate);
+      const isFutureDate = nextBirthDate > toLocalDateInputValue(new Date());
+      if (!hasValidFormat || isFutureDate) {
+        if (settingsResultEl) settingsResultEl.textContent = t('settingsBirthDateInvalid');
+        return;
+      }
+    }
+
+    if (nextWeight !== null && (!Number.isFinite(nextWeight) || nextWeight <= 0)) {
+      if (settingsResultEl) settingsResultEl.textContent = t('settingsWeightInvalid');
       return;
     }
 
@@ -1844,6 +1945,8 @@ function bindActions() {
       dailyTargetG: Math.floor(nextDailyTarget),
       defaultPortionG: Math.floor(nextDefaultPortion),
       quickAddEnabled: settingsQuickAddToggle?.checked !== false,
+      birthDate: nextBirthDate,
+      currentWeightKg: nextWeight === null ? null : Number(nextWeight.toFixed(1)),
     };
 
     saveAppSettings();
@@ -2052,6 +2155,7 @@ bindActions();
 applySettingsToForm();
 setActiveTab(currentTab);
 startEliminationStatusTicker();
+setupFoodAccordion();
 refreshAll().catch((error) => {
   alert(t('loadError', { error: error.message }));
 });

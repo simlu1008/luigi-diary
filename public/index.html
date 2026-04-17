@@ -186,6 +186,14 @@
             <span id="settings-default-portion-label">Standard-Portion beim Füttern (g)</span>
             <input id="settings-default-portion-g" type="number" min="0" step="1" inputmode="numeric" />
           </label>
+          <label>
+            <span id="settings-birth-date-label">Geburtsdatum</span>
+            <input id="settings-birth-date" type="date" />
+          </label>
+          <label>
+            <span id="settings-weight-label">Aktuelles Gewicht (kg)</span>
+            <input id="settings-weight-kg" type="number" min="0" step="0.1" inputmode="decimal" />
+          </label>
           <label class="settings-toggle">
             <input id="settings-enable-quick-add" type="checkbox" />
             <span id="settings-enable-quick-add-label">Quick-Add Chips aktivieren (25g / 30g / 50g)</span>
@@ -194,6 +202,23 @@
         <button id="settings-save" class="btn btn-primary">💾 Einstellungen speichern</button>
         <p id="settings-result" class="import-result" aria-live="polite"></p>
 
+        <section class="settings-subsection">
+          <h3 id="heading-food">Essen</h3>
+          <div class="food-accordion">
+            <button class="food-accordion-btn" type="button" aria-expanded="false" aria-controls="food-accordion-panel-1" id="food-accordion-btn-1">
+              YOUNG PACK MINI (vet-concept)
+            </button>
+            <div class="food-accordion-panel" id="food-accordion-panel-1" hidden>
+              <div class="food-recommendation">
+                <div class="food-recommendation-header">Fütterungsempfehlung (2-12 Monate)</div>
+                <img src="/images/young-pack-mini-2-4-6-12.png" alt="Fütterungstabelle 2-12 Monate" style="max-width:100%;margin-bottom:1em" />
+                <div class="food-recommendation-header">Fütterungsempfehlung (6-12 Monate)</div>
+                <img src="/images/young-pack-mini-6-9-12.png" alt="Fütterungstabelle 6-12 Monate" style="max-width:100%" />
+                <div class="food-recommendation-amount" id="food-recommendation-amount"></div>
+              </div>
+            </div>
+          </div>
+        </section>
         <section class="settings-subsection">
           <h3 id="heading-data">Daten</h3>
           <p id="data-subtitle" class="timeline-subtitle">Alle Einträge bleiben gespeichert und können exportiert werden.</p>
