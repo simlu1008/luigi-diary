@@ -57,6 +57,8 @@ const TRANSLATIONS = {
     headingSettings: 'Einstellungen',
     buttonEditEntry: 'Bearbeiten',
     buttonDeleteEntry: 'Löschen',
+    iconEditEntryAria: 'Eintrag bearbeiten',
+    iconDeleteEntryAria: 'Eintrag löschen',
     confirmDeleteEntry: 'Diesen Eintrag wirklich löschen?\n\n{entry}',
     editDialogTitle: 'Eintrag bearbeiten',
     editDialogSubtitle: 'Leere Felder bleiben unverändert.',
@@ -222,6 +224,8 @@ const TRANSLATIONS = {
     headingSettings: 'Settings',
     buttonEditEntry: 'Edit',
     buttonDeleteEntry: 'Delete',
+    iconEditEntryAria: 'Edit entry',
+    iconDeleteEntryAria: 'Delete entry',
     confirmDeleteEntry: 'Delete this entry?\n\n{entry}',
     editDialogTitle: 'Edit entry',
     editDialogSubtitle: 'Empty fields stay unchanged.',
@@ -1483,17 +1487,21 @@ async function refreshAll() {
 
     const editButton = document.createElement('button');
     editButton.type = 'button';
-    editButton.className = 'btn btn-secondary event-entry-button';
+    editButton.className = 'event-icon-btn event-icon-btn-edit';
     editButton.dataset.action = 'edit-event';
     editButton.dataset.eventId = String(event.id);
-    editButton.textContent = t('buttonEditEntry');
+    editButton.textContent = '✏️';
+    editButton.title = t('iconEditEntryAria');
+    editButton.setAttribute('aria-label', t('iconEditEntryAria'));
 
     const deleteButton = document.createElement('button');
     deleteButton.type = 'button';
-    deleteButton.className = 'btn btn-danger event-entry-button';
+    deleteButton.className = 'event-icon-btn event-icon-btn-delete';
     deleteButton.dataset.action = 'delete-event';
     deleteButton.dataset.eventId = String(event.id);
-    deleteButton.textContent = t('buttonDeleteEntry');
+    deleteButton.textContent = '🗑️';
+    deleteButton.title = t('iconDeleteEntryAria');
+    deleteButton.setAttribute('aria-label', t('iconDeleteEntryAria'));
 
     actions.append(editButton, deleteButton);
     content.appendChild(actions);
