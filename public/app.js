@@ -29,6 +29,73 @@ const FOOD_CONFIGS = {
   },
 };
 
+const FOOD_PROFILE_DEFINITIONS = {
+  youngPackMini: {
+    key: 'youngPackMini',
+    enabledInputId: 'settings-food-young-enabled',
+    chipInputIds: ['settings-food-young-chip-1', 'settings-food-young-chip-2', 'settings-food-young-chip-3'],
+    defaultQuickAddValues: [25, 30, 50],
+    labelKey: 'foodNameYoungPackMini',
+  },
+  platinumMenuPuppyChicken: {
+    key: 'platinumMenuPuppyChicken',
+    enabledInputId: 'settings-food-platinum-enabled',
+    chipInputIds: ['settings-food-platinum-chip-1', 'settings-food-platinum-chip-2', 'settings-food-platinum-chip-3'],
+    defaultQuickAddValues: [150, 200, 250],
+    labelKey: 'foodNamePlatinumMenuPuppyChicken',
+  },
+};
+
+function createDefaultFoodProfiles() {
+  return {
+    youngPackMini: {
+      enabled: true,
+      quickAddValues: [...FOOD_PROFILE_DEFINITIONS.youngPackMini.defaultQuickAddValues],
+    },
+    platinumMenuPuppyChicken: {
+      enabled: false,
+      quickAddValues: [...FOOD_PROFILE_DEFINITIONS.platinumMenuPuppyChicken.defaultQuickAddValues],
+    },
+  };
+}
+
+function sanitizeQuickAddValues(values, fallbackValues) {
+  const result = [];
+  const source = Array.isArray(values) ? values : [];
+
+  for (let index = 0; index < 3; index += 1) {
+    const parsedValue = Number(source[index]);
+    if (Number.isFinite(parsedValue) && parsedValue > 0) {
+      result.push(Math.floor(parsedValue));
+    } else {
+      result.push(fallbackValues[index]);
+    }
+  }
+
+  return result;
+}
+
+function normalizeFoodProfiles(rawProfiles) {
+  const defaults = createDefaultFoodProfiles();
+  const normalized = { ...defaults };
+
+  for (const [key, definition] of Object.entries(FOOD_PROFILE_DEFINITIONS)) {
+    const rawProfile = rawProfiles?.[key] ?? {};
+    normalized[key] = {
+      enabled: rawProfile?.enabled === true,
+      quickAddValues: sanitizeQuickAddValues(rawProfile?.quickAddValues, definition.defaultQuickAddValues),
+    };
+  }
+
+  return normalized;
+}
+
+function getFoodDisplayName(foodKey) {
+  const definition = FOOD_PROFILE_DEFINITIONS[foodKey];
+  if (!definition) return foodKey;
+  return t(definition.labelKey);
+}
+
 function formatKg(value) {
   return Number(value).toLocaleString(getLocale(), { maximumFractionDigits: 1 });
 }
@@ -48,19 +115,69 @@ function getAgeInMonths(birthDateValue) {
   return Math.max(0, months);
 }
 
-function getClosestWeight(weights, targetWeightKg) {
-  let closest = weights[0];
-  let minDistance = Math.abs(targetWeightKg - closest);
+function getInterpolatedGrams(weights, tableRow, targetWeightKg) {
+  const firstWeight = weights[0];
+  const lastWeight = weights[weights.length - 1];
 
-  for (const weight of weights) {
-    const distance = Math.abs(targetWeightKg - weight);
-    if (distance < minDistance) {
-      minDistance = distance;
-      closest = weight;
+  if (targetWeightKg <= firstWeight) {
+    return {
+      gramsPerDay: tableRow[firstWeight],
+      isInterpolated: false,
+      lowerWeightKg: firstWeight,
+      upperWeightKg: firstWeight,
+    };
+  }
+
+  if (targetWeightKg >= lastWeight) {
+    return {
+      gramsPerDay: tableRow[lastWeight],
+      isInterpolated: false,
+      lowerWeightKg: lastWeight,
+      upperWeightKg: lastWeight,
+    };
+  }
+
+  for (let index = 0; index < weights.length - 1; index += 1) {
+    const lowerWeightKg = weights[index];
+    const upperWeightKg = weights[index + 1];
+
+    if (Math.abs(targetWeightKg - lowerWeightKg) < 0.001) {
+      return {
+        gramsPerDay: tableRow[lowerWeightKg],
+        isInterpolated: false,
+        lowerWeightKg,
+        upperWeightKg: lowerWeightKg,
+      };
+    }
+
+    if (Math.abs(targetWeightKg - upperWeightKg) < 0.001) {
+      return {
+        gramsPerDay: tableRow[upperWeightKg],
+        isInterpolated: false,
+        lowerWeightKg: upperWeightKg,
+        upperWeightKg,
+      };
+    }
+
+    if (targetWeightKg > lowerWeightKg && targetWeightKg < upperWeightKg) {
+      const lowerGrams = tableRow[lowerWeightKg];
+      const upperGrams = tableRow[upperWeightKg];
+      const ratio = (targetWeightKg - lowerWeightKg) / (upperWeightKg - lowerWeightKg);
+      return {
+        gramsPerDay: Math.round(lowerGrams + (upperGrams - lowerGrams) * ratio),
+        isInterpolated: true,
+        lowerWeightKg,
+        upperWeightKg,
+      };
     }
   }
 
-  return closest;
+  return {
+    gramsPerDay: tableRow[lastWeight],
+    isInterpolated: false,
+    lowerWeightKg: lastWeight,
+    upperWeightKg: lastWeight,
+  };
 }
 
 function getMonthBracket(ageInMonths, months) {
@@ -91,16 +208,16 @@ function getFoodRecommendation(foodConfig) {
   const minMonth = foodConfig.months[0];
   const maxMonth = foodConfig.months[foodConfig.months.length - 1];
   const monthBracket = getMonthBracket(Math.max(minMonth, Math.min(maxMonth, ageInMonths)), foodConfig.months);
-  const matchedWeightKg = getClosestWeight(foodConfig.weights, targetWeightKg);
-  const gramsPerDay = foodConfig.table[monthBracket][matchedWeightKg];
+  const interpolation = getInterpolatedGrams(foodConfig.weights, foodConfig.table[monthBracket], targetWeightKg);
 
   return {
-    gramsPerDay,
+    gramsPerDay: interpolation.gramsPerDay,
     ageInMonths,
     monthBracket,
     targetWeightKg,
-    matchedWeightKg,
-    isApproxWeight: Math.abs(targetWeightKg - matchedWeightKg) > 0.001,
+    isInterpolated: interpolation.isInterpolated,
+    lowerWeightKg: interpolation.lowerWeightKg,
+    upperWeightKg: interpolation.upperWeightKg,
   };
 }
 
@@ -125,14 +242,14 @@ function updateFoodRecommendationCard(summaryElementId, amountElementId, recomme
 
   summaryEl.textContent = t('foodSummaryGrams', { grams: recommendation.gramsPerDay });
   const targetWeightText = formatKg(recommendation.targetWeightKg);
-  const matchedWeightText = formatKg(recommendation.matchedWeightKg);
 
-  amountEl.textContent = recommendation.isApproxWeight
-    ? t('foodRecommendationApprox', {
+  amountEl.textContent = recommendation.isInterpolated
+    ? t('foodRecommendationInterpolated', {
       grams: recommendation.gramsPerDay,
       age: recommendation.ageInMonths,
       targetWeight: targetWeightText,
-      matchedWeight: matchedWeightText,
+      lowerWeight: formatKg(recommendation.lowerWeightKg),
+      upperWeight: formatKg(recommendation.upperWeightKg),
     })
     : t('foodRecommendationExact', {
       grams: recommendation.gramsPerDay,
@@ -170,6 +287,85 @@ function setupFoodAccordion() {
 
   updateFoodRecommendationUi();
 }
+
+function getActiveFoodProfileKeys() {
+  return Object.keys(FOOD_PROFILE_DEFINITIONS).filter((foodKey) => appSettings.foodProfiles?.[foodKey]?.enabled);
+}
+
+function renderFeedQuickAddButtons() {
+  const quickAddRow = document.getElementById('feed-quick-add');
+  if (!quickAddRow) return;
+
+  const profile = appSettings.foodProfiles?.[selectedFeedFoodKey];
+  if (!appSettings.quickAddEnabled || !profile) {
+    quickAddRow.style.display = 'none';
+    quickAddRow.innerHTML = '';
+    return;
+  }
+
+  quickAddRow.style.display = 'flex';
+  quickAddRow.innerHTML = profile.quickAddValues
+    .map((grams) => `<button type="button" class="chip-btn" data-gram="${grams}">+${grams}g</button>`)
+    .join('');
+}
+
+function renderFeedFoodOptions() {
+  const optionsWrap = document.getElementById('feed-food-options');
+  const emptyHint = document.getElementById('feed-food-options-empty');
+  const feedAmountInput = document.getElementById('feed-amount-g');
+  const feedNoteInput = document.getElementById('feed-note');
+  const feedButton = document.getElementById('feed');
+
+  if (!optionsWrap || !emptyHint || !feedAmountInput || !feedNoteInput || !feedButton) return;
+
+  const activeKeys = getActiveFoodProfileKeys();
+
+  if (!activeKeys.length) {
+    selectedFeedFoodKey = null;
+    optionsWrap.innerHTML = '';
+    emptyHint.hidden = false;
+    feedAmountInput.disabled = true;
+    feedNoteInput.disabled = true;
+    feedButton.disabled = true;
+    renderFeedQuickAddButtons();
+    return;
+  }
+
+  if (!activeKeys.includes(selectedFeedFoodKey)) {
+    [selectedFeedFoodKey] = activeKeys;
+  }
+
+  emptyHint.hidden = true;
+  feedAmountInput.disabled = false;
+  feedNoteInput.disabled = false;
+  feedButton.disabled = false;
+
+  optionsWrap.innerHTML = activeKeys
+    .map((foodKey) => {
+      const isActive = foodKey === selectedFeedFoodKey;
+      return `<button type="button" class="chip-btn${isActive ? ' active' : ''}" data-food-key="${foodKey}">${getFoodDisplayName(foodKey)}</button>`;
+    })
+    .join('');
+
+  const profile = appSettings.foodProfiles?.[selectedFeedFoodKey];
+  if (profile?.quickAddValues?.length) {
+    feedAmountInput.value = String(profile.quickAddValues[0]);
+  }
+
+  renderFeedQuickAddButtons();
+}
+
+function buildFeedNoteForSelectedFood(rawNote) {
+  if (!selectedFeedFoodKey) {
+    return rawNote;
+  }
+  const foodName = getFoodDisplayName(selectedFeedFoodKey);
+  if (!rawNote) {
+    return `[${foodName}]`;
+  }
+  return `[${foodName}] ${rawNote}`;
+}
+
 async function api(path, options = {}) {
   const response = await fetch(path, {
     headers: { 'Content-Type': 'application/json' },
@@ -196,10 +392,11 @@ const DEFAULT_SETTINGS = {
   birthDate: '',
   currentWeightKg: null,
   targetWeightKg: null,
+  foodProfiles: createDefaultFoodProfiles(),
 };
 let currentLanguage = 'en';
 let currentTab = 'today';
-let appSettings = { ...DEFAULT_SETTINGS };
+let appSettings = { ...DEFAULT_SETTINGS, foodProfiles: createDefaultFoodProfiles() };
 let currentWalkPipiAt = null;
 let currentWalkPupuAt = null;
 let currentAloneStartedAt = null;
@@ -212,12 +409,14 @@ let quickAddUndoCountdownTimerId = null;
 let quickAddUndoEventId = null;
 let recentEventsCache = [];
 let editFeedbackTimeoutId = null;
+let selectedFeedFoodKey = null;
 
 const TRANSLATIONS = {
   de: {
     appTitle: '🐶 Luigi Diary',
     appSubtitle: 'Spaziergänge & Fütterung schnell vom Handy erfassen',
     tabToday: 'Heute',
+    tabFood: 'Essen',
     tabSettings: 'Einstellungen',
     languageLabel: 'Sprache',
     languageAria: 'Sprache wählen',
@@ -230,6 +429,7 @@ const TRANSLATIONS = {
     headingEvents: 'Letzte Einträge',
     headingData: 'Daten',
     headingFood: 'Essen',
+    headingFoodConfig: 'Futter Tracking',
     headingSettings: 'Einstellungen',
     buttonEditEntry: 'Bearbeiten',
     buttonDeleteEntry: 'Löschen',
@@ -260,6 +460,8 @@ const TRANSLATIONS = {
     walkNotePlaceholder: 'Notiz (optional)',
     feedNotePlaceholder: 'Füttern-Notiz (optional)',
     feedAmountLabel: 'Menge',
+    feedFoodOptionsLabel: 'Futtersorte zum Tracken',
+    feedFoodOptionsEmpty: 'Aktiviere in den Einstellungen mindestens eine Futtersorte.',
     sleepNotePlaceholder: 'Schlaf-Notiz (optional)',
     buttonStartWalk: '🚶 Spaziergang starten',
     buttonEndWalk: '✅ Spaziergang beenden',
@@ -365,12 +567,21 @@ const TRANSLATIONS = {
     settingsWeightLabel: 'Aktuelles Gewicht (kg)',
     settingsTargetWeightLabel: 'Zielgewicht / Endgewicht (kg)',
     settingsQuickAddLabel: 'Quick-Add Chips aktivieren (25g / 30g / 50g)',
+    foodConfigSubtitle: 'Aktiviere Futtersorten und definiere je Sorte drei Quick-Add-Werte.',
+    foodNameYoungPackMini: 'YOUNG PACK MINI (vet-concept)',
+    foodNamePlatinumMenuPuppyChicken: 'PLATINUM Menu Puppy Chicken',
+    settingsFoodYoungEnabledLabel: 'YOUNG PACK MINI wird aktuell gefüttert',
+    settingsFoodPlatinumEnabledLabel: 'PLATINUM Menu Puppy Chicken wird aktuell gefüttert',
+    settingsFoodChip1Label: 'Quick Add 1 (g)',
+    settingsFoodChip2Label: 'Quick Add 2 (g)',
+    settingsFoodChip3Label: 'Quick Add 3 (g)',
     buttonSaveSettings: '💾 Einstellungen speichern',
     settingsSaved: 'Einstellungen gespeichert.',
     settingsSaveFailed: 'Bitte gültige Werte eingeben.',
     settingsBirthDateInvalid: 'Bitte ein gültiges Geburtsdatum eingeben (nicht in der Zukunft).',
     settingsWeightInvalid: 'Bitte ein gültiges Gewicht eingeben (> 0).',
     settingsTargetWeightInvalid: 'Bitte ein gültiges Zielgewicht eingeben (> 0).',
+    settingsFoodChipInvalid: 'Bitte für jede aktive Futtersorte drei gültige Quick-Add-Werte (> 0) eingeben.',
     foodSummaryPending: 'Menge offen',
     foodSummaryGrams: '{grams} g/Tag',
     foodMissingBirthDate: 'Bitte zuerst ein gültiges Geburtsdatum in den Einstellungen angeben.',
@@ -378,7 +589,7 @@ const TRANSLATIONS = {
     foodUnsupportedTargetWeightYoungPackMini: 'YOUNG PACK MINI ist bis 15 kg Zielgewicht ausgelegt. Bitte für höhere Zielgewichte auf MIDI/MAXI wechseln.',
     foodUnsupportedTargetWeightPlatinumPuppyChicken: 'PLATINUM Menu Puppy Chicken ist bis 80 kg Zielgewicht ausgelegt.',
     foodRecommendationExact: 'Empfohlene Tagesmenge: {grams} g (Alter: {age} Monate, Zielgewicht: {targetWeight} kg).',
-    foodRecommendationApprox: 'Empfohlene Tagesmenge: {grams} g (Alter: {age} Monate, Zielgewicht: {targetWeight} kg; nächster Tabellenwert: {matchedWeight} kg).',
+    foodRecommendationInterpolated: 'Empfohlene Tagesmenge: {grams} g (Alter: {age} Monate, Zielgewicht: {targetWeight} kg; interpoliert zwischen {lowerWeight} kg und {upperWeight} kg).',
     quickAddSaved: '✓ {grams} g gespeichert',
     quickAddUndo: 'Rückgängig',
     quickAddUndone: 'Fütterung rückgängig gemacht.',
@@ -400,6 +611,7 @@ const TRANSLATIONS = {
     appTitle: '🐶 Luigi Diary',
     appSubtitle: 'Quickly track walks and feeding from your phone',
     tabToday: 'Today',
+    tabFood: 'Food',
     tabSettings: 'Settings',
     languageLabel: 'Language',
     languageAria: 'Choose language',
@@ -412,6 +624,7 @@ const TRANSLATIONS = {
     headingEvents: 'Recent Entries',
     headingData: 'Data',
     headingFood: 'Food',
+    headingFoodConfig: 'Food Tracking',
     headingSettings: 'Settings',
     buttonEditEntry: 'Edit',
     buttonDeleteEntry: 'Delete',
@@ -442,6 +655,8 @@ const TRANSLATIONS = {
     walkNotePlaceholder: 'Note (optional)',
     feedNotePlaceholder: 'Feeding note (optional)',
     feedAmountLabel: 'Amount',
+    feedFoodOptionsLabel: 'Food to track',
+    feedFoodOptionsEmpty: 'Enable at least one food in settings.',
     sleepNotePlaceholder: 'Sleep note (optional)',
     buttonStartWalk: '🚶 Start walk',
     buttonEndWalk: '✅ End walk',
@@ -547,12 +762,21 @@ const TRANSLATIONS = {
     settingsWeightLabel: 'Current weight (kg)',
     settingsTargetWeightLabel: 'Target/adult weight (kg)',
     settingsQuickAddLabel: 'Enable quick-add chips (25g / 30g / 50g)',
+    foodConfigSubtitle: 'Enable food types and define three quick-add values per type.',
+    foodNameYoungPackMini: 'YOUNG PACK MINI (vet-concept)',
+    foodNamePlatinumMenuPuppyChicken: 'PLATINUM Menu Puppy Chicken',
+    settingsFoodYoungEnabledLabel: 'YOUNG PACK MINI is currently fed',
+    settingsFoodPlatinumEnabledLabel: 'PLATINUM Menu Puppy Chicken is currently fed',
+    settingsFoodChip1Label: 'Quick add 1 (g)',
+    settingsFoodChip2Label: 'Quick add 2 (g)',
+    settingsFoodChip3Label: 'Quick add 3 (g)',
     buttonSaveSettings: '💾 Save settings',
     settingsSaved: 'Settings saved.',
     settingsSaveFailed: 'Please enter valid values.',
     settingsBirthDateInvalid: 'Please enter a valid birth date (not in the future).',
     settingsWeightInvalid: 'Please enter a valid weight (> 0).',
     settingsTargetWeightInvalid: 'Please enter a valid target weight (> 0).',
+    settingsFoodChipInvalid: 'Please enter three valid quick-add values (> 0) for each active food type.',
     foodSummaryPending: 'Amount pending',
     foodSummaryGrams: '{grams} g/day',
     foodMissingBirthDate: 'Please provide a valid birth date in settings first.',
@@ -560,7 +784,7 @@ const TRANSLATIONS = {
     foodUnsupportedTargetWeightYoungPackMini: 'YOUNG PACK MINI is intended for up to 15 kg target weight. Use MIDI/MAXI for higher target weights.',
     foodUnsupportedTargetWeightPlatinumPuppyChicken: 'PLATINUM Menu Puppy Chicken is intended for up to 80 kg target weight.',
     foodRecommendationExact: 'Recommended daily amount: {grams} g (Age: {age} months, Target weight: {targetWeight} kg).',
-    foodRecommendationApprox: 'Recommended daily amount: {grams} g (Age: {age} months, Target weight: {targetWeight} kg; nearest table value: {matchedWeight} kg).',
+    foodRecommendationInterpolated: 'Recommended daily amount: {grams} g (Age: {age} months, Target weight: {targetWeight} kg; interpolated between {lowerWeight} kg and {upperWeight} kg).',
     quickAddSaved: '✓ {grams} g saved',
     quickAddUndo: 'Undo',
     quickAddUndone: 'Feed removed.',
@@ -636,6 +860,7 @@ function applyStaticTranslations() {
   setText('app-title', t('appTitle'));
   setText('app-subtitle', t('appSubtitle'));
   setText('tab-today', t('tabToday'));
+  setText('tab-food', t('tabFood'));
   setText('tab-settings', t('tabSettings'));
   setText('language-label', t('languageLabel'));
   setText('heading-status', t('headingStatus'));
@@ -647,6 +872,7 @@ function applyStaticTranslations() {
   setText('heading-events', t('headingEvents'));
   setText('heading-data', t('headingData'));
   setText('heading-food', t('headingFood'));
+  setText('heading-food-config', t('headingFoodConfig'));
   setText('heading-settings', t('headingSettings'));
   setText('edit-dialog-title', t('editDialogTitle'));
   setText('edit-dialog-subtitle', t('editDialogSubtitle'));
@@ -664,6 +890,8 @@ function applyStaticTranslations() {
   setText('label-pipi', t('labelPipi'));
   setText('label-pupu', t('labelPupu'));
   setText('feed-amount-label', t('feedAmountLabel'));
+  setText('feed-food-options-label', t('feedFoodOptionsLabel'));
+  setText('feed-food-options-empty', t('feedFoodOptionsEmpty'));
   setText('start-walk', t('buttonStartWalk'));
   setText('end-walk', t('buttonEndWalk'));
   setText('feed', t('buttonFeed'));
@@ -722,6 +950,15 @@ function applyStaticTranslations() {
   setText('settings-weight-label', t('settingsWeightLabel'));
   setText('settings-target-weight-label', t('settingsTargetWeightLabel'));
   setText('settings-enable-quick-add-label', t('settingsQuickAddLabel'));
+  setText('food-config-subtitle', t('foodConfigSubtitle'));
+  setText('settings-food-young-enabled-label', t('settingsFoodYoungEnabledLabel'));
+  setText('settings-food-platinum-enabled-label', t('settingsFoodPlatinumEnabledLabel'));
+  setText('settings-food-young-chip-1-label', t('settingsFoodChip1Label'));
+  setText('settings-food-young-chip-2-label', t('settingsFoodChip2Label'));
+  setText('settings-food-young-chip-3-label', t('settingsFoodChip3Label'));
+  setText('settings-food-platinum-chip-1-label', t('settingsFoodChip1Label'));
+  setText('settings-food-platinum-chip-2-label', t('settingsFoodChip2Label'));
+  setText('settings-food-platinum-chip-3-label', t('settingsFoodChip3Label'));
   setText('settings-save', t('buttonSaveSettings'));
   setText('edit-dialog-save', t('editSave'));
   setText('edit-dialog-cancel', t('editCancel'));
@@ -742,17 +979,18 @@ function applyStaticTranslations() {
 
   const foodTitle = document.getElementById('food-accordion-title-1');
   if (foodTitle) {
-    foodTitle.textContent = 'YOUNG PACK MINI (vet-concept)';
+    foodTitle.textContent = t('foodNameYoungPackMini');
   }
 
   const foodTitle2 = document.getElementById('food-accordion-title-2');
   if (foodTitle2) {
-    foodTitle2.textContent = 'PLATINUM Menu Puppy Chicken';
+    foodTitle2.textContent = t('foodNamePlatinumMenuPuppyChicken');
   }
 
   renderEliminationStatus();
   renderFeedOpenStatus();
   updateFoodRecommendationUi();
+  renderFeedFoodOptions();
 }
 
 function initLanguage() {
@@ -771,7 +1009,7 @@ function loadAppSettings() {
   try {
     const raw = localStorage.getItem(SETTINGS_STORAGE_KEY);
     if (!raw) {
-      appSettings = { ...DEFAULT_SETTINGS };
+      appSettings = { ...DEFAULT_SETTINGS, foodProfiles: createDefaultFoodProfiles() };
       return;
     }
 
@@ -784,6 +1022,7 @@ function loadAppSettings() {
     const targetWeightKg = Number.isFinite(parsedTargetWeightNumber) && parsedTargetWeightNumber > 0
       ? Number(parsedTargetWeightNumber.toFixed(1))
       : null;
+    const foodProfiles = normalizeFoodProfiles(parsed?.foodProfiles);
 
     appSettings = {
       dailyTargetG: Number.isFinite(Number(parsed?.dailyTargetG)) ? Math.max(0, Math.floor(Number(parsed.dailyTargetG))) : DEFAULT_SETTINGS.dailyTargetG,
@@ -792,9 +1031,10 @@ function loadAppSettings() {
       birthDate,
       currentWeightKg,
       targetWeightKg,
+      foodProfiles,
     };
   } catch {
-    appSettings = { ...DEFAULT_SETTINGS };
+    appSettings = { ...DEFAULT_SETTINGS, foodProfiles: createDefaultFoodProfiles() };
   }
 }
 
@@ -810,6 +1050,17 @@ function applySettingsToForm() {
   const targetWeightInput = document.getElementById('settings-target-weight-kg');
   const quickAddToggle = document.getElementById('settings-enable-quick-add');
   const feedAmountInput = document.getElementById('feed-amount-g');
+  const settingsFoodYoungEnabled = document.getElementById('settings-food-young-enabled');
+  const settingsFoodYoungChip1 = document.getElementById('settings-food-young-chip-1');
+  const settingsFoodYoungChip2 = document.getElementById('settings-food-young-chip-2');
+  const settingsFoodYoungChip3 = document.getElementById('settings-food-young-chip-3');
+  const settingsFoodPlatinumEnabled = document.getElementById('settings-food-platinum-enabled');
+  const settingsFoodPlatinumChip1 = document.getElementById('settings-food-platinum-chip-1');
+  const settingsFoodPlatinumChip2 = document.getElementById('settings-food-platinum-chip-2');
+  const settingsFoodPlatinumChip3 = document.getElementById('settings-food-platinum-chip-3');
+
+  const youngProfile = appSettings.foodProfiles?.youngPackMini;
+  const platinumProfile = appSettings.foodProfiles?.platinumMenuPuppyChicken;
 
   if (dailyTargetInput) dailyTargetInput.value = String(appSettings.dailyTargetG);
   if (defaultPortionInput) defaultPortionInput.value = String(appSettings.defaultPortionG);
@@ -817,17 +1068,28 @@ function applySettingsToForm() {
   if (weightInput) weightInput.value = appSettings.currentWeightKg === null ? '' : String(appSettings.currentWeightKg);
   if (targetWeightInput) targetWeightInput.value = appSettings.targetWeightKg === null ? '' : String(appSettings.targetWeightKg);
   if (quickAddToggle) quickAddToggle.checked = appSettings.quickAddEnabled;
-  if (feedAmountInput && !feedAmountInput.value) feedAmountInput.value = String(appSettings.defaultPortionG);
+  if (settingsFoodYoungEnabled) settingsFoodYoungEnabled.checked = youngProfile?.enabled === true;
+  if (settingsFoodYoungChip1) settingsFoodYoungChip1.value = String(youngProfile?.quickAddValues?.[0] ?? 25);
+  if (settingsFoodYoungChip2) settingsFoodYoungChip2.value = String(youngProfile?.quickAddValues?.[1] ?? 30);
+  if (settingsFoodYoungChip3) settingsFoodYoungChip3.value = String(youngProfile?.quickAddValues?.[2] ?? 50);
+  if (settingsFoodPlatinumEnabled) settingsFoodPlatinumEnabled.checked = platinumProfile?.enabled === true;
+  if (settingsFoodPlatinumChip1) settingsFoodPlatinumChip1.value = String(platinumProfile?.quickAddValues?.[0] ?? 150);
+  if (settingsFoodPlatinumChip2) settingsFoodPlatinumChip2.value = String(platinumProfile?.quickAddValues?.[1] ?? 200);
+  if (settingsFoodPlatinumChip3) settingsFoodPlatinumChip3.value = String(platinumProfile?.quickAddValues?.[2] ?? 250);
+  if (feedAmountInput && !feedAmountInput.value) {
+    const firstActiveKey = getActiveFoodProfileKeys()[0];
+    const firstValue = firstActiveKey ? appSettings.foodProfiles?.[firstActiveKey]?.quickAddValues?.[0] : appSettings.defaultPortionG;
+    feedAmountInput.value = String(firstValue ?? appSettings.defaultPortionG);
+  }
 
   applyQuickAddVisibility();
   renderFeedOpenStatus();
   updateFoodRecommendationUi();
+  renderFeedFoodOptions();
 }
 
 function applyQuickAddVisibility() {
-  const quickAddRow = document.getElementById('feed-quick-add');
-  if (!quickAddRow) return;
-  quickAddRow.style.display = appSettings.quickAddEnabled ? 'flex' : 'none';
+  renderFeedQuickAddButtons();
 }
 
 function toLocalDateInputValue(date) {
@@ -839,23 +1101,27 @@ function toLocalDateInputValue(date) {
 
 function initActiveTab() {
   const saved = localStorage.getItem(ACTIVE_TAB_STORAGE_KEY);
-  if (saved === 'settings' || saved === 'today') {
+  if (saved === 'settings' || saved === 'today' || saved === 'food') {
     currentTab = saved;
   }
 }
 
 function setActiveTab(tabName) {
-  currentTab = tabName === 'settings' ? 'settings' : 'today';
+  const supportedTabs = ['today', 'food', 'settings'];
+  currentTab = supportedTabs.includes(tabName) ? tabName : 'today';
   localStorage.setItem(ACTIVE_TAB_STORAGE_KEY, currentTab);
 
   const container = document.querySelector('.container');
   if (container) {
+    container.classList.toggle('tab-food-active', currentTab === 'food');
     container.classList.toggle('tab-settings-active', currentTab === 'settings');
   }
 
   const tabToday = document.getElementById('tab-today');
+  const tabFood = document.getElementById('tab-food');
   const tabSettings = document.getElementById('tab-settings');
   if (tabToday) tabToday.classList.toggle('active', currentTab === 'today');
+  if (tabFood) tabFood.classList.toggle('active', currentTab === 'food');
   if (tabSettings) tabSettings.classList.toggle('active', currentTab === 'settings');
 }
 
@@ -1920,6 +2186,7 @@ async function submitManualEvent() {
 
 function bindActions() {
   const tabTodayButton = document.getElementById('tab-today');
+  const tabFoodButton = document.getElementById('tab-food');
   const tabSettingsButton = document.getElementById('tab-settings');
   const startWalkButton = document.getElementById('start-walk');
   const endWalkButton = document.getElementById('end-walk');
@@ -1955,6 +2222,15 @@ function bindActions() {
   const settingsWeightInput = document.getElementById('settings-weight-kg');
   const settingsTargetWeightInput = document.getElementById('settings-target-weight-kg');
   const settingsQuickAddToggle = document.getElementById('settings-enable-quick-add');
+  const settingsFoodYoungEnabled = document.getElementById('settings-food-young-enabled');
+  const settingsFoodYoungChip1 = document.getElementById('settings-food-young-chip-1');
+  const settingsFoodYoungChip2 = document.getElementById('settings-food-young-chip-2');
+  const settingsFoodYoungChip3 = document.getElementById('settings-food-young-chip-3');
+  const settingsFoodPlatinumEnabled = document.getElementById('settings-food-platinum-enabled');
+  const settingsFoodPlatinumChip1 = document.getElementById('settings-food-platinum-chip-1');
+  const settingsFoodPlatinumChip2 = document.getElementById('settings-food-platinum-chip-2');
+  const settingsFoodPlatinumChip3 = document.getElementById('settings-food-platinum-chip-3');
+  const feedFoodOptions = document.getElementById('feed-food-options');
   const eventsList = document.getElementById('events');
   const editEventDialog = document.getElementById('edit-event-dialog');
   const editEventForm = document.getElementById('edit-event-form');
@@ -1976,21 +2252,35 @@ function bindActions() {
     setActiveTab('today');
   });
 
+  tabFoodButton?.addEventListener('click', () => {
+    setActiveTab('food');
+  });
+
   tabSettingsButton?.addEventListener('click', () => {
     setActiveTab('settings');
   });
 
+  feedFoodOptions?.addEventListener('click', (event) => {
+    const button = event.target.closest('button[data-food-key]');
+    if (!button) return;
+    const nextFoodKey = String(button.dataset.foodKey || '');
+    if (!FOOD_PROFILE_DEFINITIONS[nextFoodKey]) return;
+    selectedFeedFoodKey = nextFoodKey;
+    renderFeedFoodOptions();
+  });
+
   quickAddRow?.addEventListener('click', (event) => {
     const chip = event.target.closest('.chip-btn');
-    if (!chip) return;
+    if (!chip || chip.dataset.foodKey) return;
     const gramValue = Number(chip.dataset.gram);
     if (!Number.isFinite(gramValue)) return;
 
-    const note = document.getElementById('feed-note').value.trim();
+    const userNote = document.getElementById('feed-note').value.trim();
+    const note = buildFeedNoteForSelectedFood(userNote);
     saveFeedEntry(gramValue, note)
       .then(({ id, amountG }) => {
         if (feedAmountInput) {
-          feedAmountInput.value = String(appSettings.defaultPortionG);
+          feedAmountInput.value = String(gramValue);
         }
         if (document.getElementById('feed-note')) {
           document.getElementById('feed-note').value = '';
@@ -2088,6 +2378,16 @@ function bindActions() {
     const nextWeight = nextWeightRaw === '' ? null : Number(nextWeightRaw);
     const nextTargetWeightRaw = String(settingsTargetWeightInput?.value ?? '').trim();
     const nextTargetWeight = nextTargetWeightRaw === '' ? null : Number(nextTargetWeightRaw);
+    const nextYoungValues = [
+      Number(settingsFoodYoungChip1?.value ?? NaN),
+      Number(settingsFoodYoungChip2?.value ?? NaN),
+      Number(settingsFoodYoungChip3?.value ?? NaN),
+    ];
+    const nextPlatinumValues = [
+      Number(settingsFoodPlatinumChip1?.value ?? NaN),
+      Number(settingsFoodPlatinumChip2?.value ?? NaN),
+      Number(settingsFoodPlatinumChip3?.value ?? NaN),
+    ];
 
     if (!Number.isFinite(nextDailyTarget) || nextDailyTarget < 0 || !Number.isFinite(nextDefaultPortion) || nextDefaultPortion < 0) {
       if (settingsResultEl) settingsResultEl.textContent = t('settingsSaveFailed');
@@ -2113,6 +2413,28 @@ function bindActions() {
       return;
     }
 
+    const isValidChipSet = (values) => values.every((value) => Number.isFinite(value) && value > 0);
+    if ((settingsFoodYoungEnabled?.checked && !isValidChipSet(nextYoungValues)) || (settingsFoodPlatinumEnabled?.checked && !isValidChipSet(nextPlatinumValues))) {
+      if (settingsResultEl) settingsResultEl.textContent = t('settingsFoodChipInvalid');
+      return;
+    }
+
+    const fallbackProfiles = appSettings.foodProfiles || createDefaultFoodProfiles();
+    const foodProfiles = {
+      youngPackMini: {
+        enabled: settingsFoodYoungEnabled?.checked === true,
+        quickAddValues: isValidChipSet(nextYoungValues)
+          ? nextYoungValues.map((value) => Math.floor(value))
+          : [...fallbackProfiles.youngPackMini.quickAddValues],
+      },
+      platinumMenuPuppyChicken: {
+        enabled: settingsFoodPlatinumEnabled?.checked === true,
+        quickAddValues: isValidChipSet(nextPlatinumValues)
+          ? nextPlatinumValues.map((value) => Math.floor(value))
+          : [...fallbackProfiles.platinumMenuPuppyChicken.quickAddValues],
+      },
+    };
+
     appSettings = {
       dailyTargetG: Math.floor(nextDailyTarget),
       defaultPortionG: Math.floor(nextDefaultPortion),
@@ -2120,12 +2442,15 @@ function bindActions() {
       birthDate: nextBirthDate,
       currentWeightKg: nextWeight === null ? null : Number(nextWeight.toFixed(1)),
       targetWeightKg: nextTargetWeight === null ? null : Number(nextTargetWeight.toFixed(1)),
+      foodProfiles,
     };
 
     saveAppSettings();
     applySettingsToForm();
     if (feedAmountInput) {
-      feedAmountInput.value = String(appSettings.defaultPortionG);
+      const activeFood = getActiveFoodProfileKeys()[0];
+      const suggested = activeFood ? appSettings.foodProfiles?.[activeFood]?.quickAddValues?.[0] : appSettings.defaultPortionG;
+      feedAmountInput.value = String(suggested ?? appSettings.defaultPortionG);
     }
     if (settingsResultEl) settingsResultEl.textContent = t('settingsSaved');
   });
@@ -2183,15 +2508,19 @@ function bindActions() {
   });
 
   feedButton.addEventListener('click', async () => {
-    const note = document.getElementById('feed-note').value.trim();
+    const userNote = document.getElementById('feed-note').value.trim();
+    const note = buildFeedNoteForSelectedFood(userNote);
     const amountG = Number(feedAmountInput?.value ?? NaN);
-    const normalizedAmountG = Number.isFinite(amountG) ? Math.max(0, Math.floor(amountG)) : Math.max(0, appSettings.defaultPortionG);
+    const fallbackAmount = selectedFeedFoodKey
+      ? appSettings.foodProfiles?.[selectedFeedFoodKey]?.quickAddValues?.[0]
+      : appSettings.defaultPortionG;
+    const normalizedAmountG = Number.isFinite(amountG) ? Math.max(0, Math.floor(amountG)) : Math.max(0, fallbackAmount ?? appSettings.defaultPortionG);
 
     try {
       await saveFeedEntry(normalizedAmountG, note);
       document.getElementById('feed-note').value = '';
       if (feedAmountInput) {
-        feedAmountInput.value = String(appSettings.defaultPortionG);
+        feedAmountInput.value = String(normalizedAmountG);
       }
       hideQuickAddBanner();
       await refreshAll();

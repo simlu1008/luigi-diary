@@ -134,7 +134,7 @@ h1 {
 
 .tab-nav {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: 8px;
   margin: 10px 0 12px;
 }
@@ -155,12 +155,18 @@ h1 {
   color: #1e3a8a;
 }
 
+[data-tab='food'],
 [data-tab='settings'] {
   display: none;
 }
 
+.tab-food-active [data-tab='today'],
 .tab-settings-active [data-tab='today'] {
   display: none;
+}
+
+.tab-food-active [data-tab='food'] {
+  display: block;
 }
 
 .tab-settings-active [data-tab='settings'] {
@@ -433,6 +439,12 @@ h1 {
   gap: 8px;
 }
 
+.food-track-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .chip-btn {
   border: 1px solid var(--border);
   background: #fff;
@@ -443,8 +455,40 @@ h1 {
   cursor: pointer;
 }
 
+.chip-btn.active {
+  background: #dbeafe;
+  border-color: #93c5fd;
+  color: #1e3a8a;
+  font-weight: 600;
+}
+
 .chip-btn:active {
   transform: translateY(1px);
+}
+
+.food-config-card {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 10px;
+  margin-bottom: 10px;
+  display: grid;
+  gap: 10px;
+}
+
+.food-chip-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.food-chip-grid input {
+  width: 100%;
+}
+
+@media (max-width: 640px) {
+  .food-chip-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 input[type='text'] {

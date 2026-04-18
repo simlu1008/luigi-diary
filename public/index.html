@@ -24,6 +24,7 @@
 
       <nav class="tab-nav" aria-label="Bereiche">
         <button id="tab-today" class="tab-btn active" type="button">Heute</button>
+        <button id="tab-food" class="tab-btn" type="button">Essen</button>
         <button id="tab-settings" class="tab-btn" type="button">Einstellungen</button>
       </nav>
 
@@ -34,13 +35,6 @@
         <p id="alone-status">Lade Alone-Status…</p>
         <p id="last-pipi-status" class="status-mini-line">Letztes Pipi: noch kein Eintrag</p>
         <p id="last-pupu-status" class="status-mini-line">Letztes Pupu: noch kein Eintrag</p>
-        <p id="feed-open-status" class="status-mini-line">Futter offen heute: 0 g</p>
-        <div id="feed-progress-wrap" class="feed-progress-wrap" aria-hidden="true">
-          <div class="feed-progress-track">
-            <div id="feed-progress-bar" class="feed-progress-bar"></div>
-          </div>
-          <p id="feed-progress-text" class="feed-progress-text">0%</p>
-        </div>
       </section>
 
       <section class="card actions" data-tab="today">
@@ -53,7 +47,34 @@
           <button id="end-walk" class="btn btn-warning">✅ Spaziergang beenden</button>
         </div>
 
+        <div class="session-block">
+          <button id="start-sleep" class="btn btn-secondary">🌙 Schlafen gestartet</button>
+          <input type="text" id="sleep-note" placeholder="Schlaf-Notiz (optional)" />
+          <button id="end-sleep" class="btn btn-dark">⏰ Aufgestanden</button>
+        </div>
+
+        <div class="session-block">
+          <button id="start-alone" class="btn btn-secondary">🏠 Alleine gelassen</button>
+          <button id="end-alone" class="btn btn-dark">🤝 Wieder da</button>
+        </div>
+      </section>
+
+      <section class="card" data-tab="food">
+        <h2 id="heading-food">Essen</h2>
+        <p id="feed-open-status" class="status-mini-line">Futter offen heute: 0 g</p>
+        <div id="feed-progress-wrap" class="feed-progress-wrap" aria-hidden="true">
+          <div class="feed-progress-track">
+            <div id="feed-progress-bar" class="feed-progress-bar"></div>
+          </div>
+          <p id="feed-progress-text" class="feed-progress-text">0%</p>
+        </div>
+
         <div class="feed-block">
+          <div>
+            <p id="feed-food-options-label" class="timeline-subtitle">Futtersorte zum Tracken</p>
+            <div id="feed-food-options" class="food-track-options"></div>
+            <p id="feed-food-options-empty" class="timeline-subtitle" hidden>Aktiviere in den Einstellungen mindestens eine Futtersorte.</p>
+          </div>
           <div class="feed-input-row">
             <label class="feed-amount-label" for="feed-amount-g" id="feed-amount-label">Menge</label>
             <div class="feed-amount-field">
@@ -70,16 +91,63 @@
           <button id="feed" class="btn btn-success">🍽️ Gefüttert</button>
         </div>
 
-        <div class="session-block">
-          <button id="start-sleep" class="btn btn-secondary">🌙 Schlafen gestartet</button>
-          <input type="text" id="sleep-note" placeholder="Schlaf-Notiz (optional)" />
-          <button id="end-sleep" class="btn btn-dark">⏰ Aufgestanden</button>
-        </div>
+        <section class="settings-subsection">
+          <div class="food-accordion">
+            <button class="food-accordion-btn" type="button" aria-expanded="false" aria-controls="food-accordion-panel-1" id="food-accordion-btn-1">
+              <span id="food-accordion-title-1">YOUNG PACK MINI (vet-concept)</span>
+              <span id="food-accordion-summary-1" class="food-accordion-summary">—</span>
+            </button>
+            <div class="food-accordion-panel" id="food-accordion-panel-1" hidden>
+              <div class="food-recommendation">
+                <div class="food-recommendation-header">Fütterungsempfehlung (2-12 Monate)</div>
+                <img src="/images/young-pack-mini-2-4-6-12.png" alt="Fütterungstabelle 2-12 Monate" style="max-width:100%;margin-bottom:1em" />
+                <div class="food-recommendation-header">Fütterungsempfehlung (6-12 Monate)</div>
+                <img src="/images/young-pack-mini-6-9-12.png" alt="Fütterungstabelle 6-12 Monate" style="max-width:100%" />
+                <div class="food-recommendation-amount" id="food-recommendation-amount-1"></div>
+              </div>
+            </div>
 
-        <div class="session-block">
-          <button id="start-alone" class="btn btn-secondary">🏠 Alleine gelassen</button>
-          <button id="end-alone" class="btn btn-dark">🤝 Wieder da</button>
-        </div>
+            <button class="food-accordion-btn" type="button" aria-expanded="false" aria-controls="food-accordion-panel-2" id="food-accordion-btn-2">
+              <span id="food-accordion-title-2">PLATINUM Menu Puppy Chicken</span>
+              <span id="food-accordion-summary-2" class="food-accordion-summary">—</span>
+            </button>
+            <div class="food-accordion-panel" id="food-accordion-panel-2" hidden>
+              <div class="food-recommendation">
+                <div class="food-recommendation-header">Tägliche Futtermenge (laut Hersteller)</div>
+                <div class="food-table-wrap">
+                  <table class="food-table">
+                    <thead>
+                      <tr>
+                        <th>Zielgewicht</th>
+                        <th>2 Mon</th>
+                        <th>4 Mon</th>
+                        <th>6 Mon</th>
+                        <th>8 Mon</th>
+                        <th>10 Mon</th>
+                        <th>12 Mon</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr><td>2,5 kg</td><td>88 g</td><td>113 g</td><td>145 g</td><td>125 g</td><td>125 g</td><td>125 g</td></tr>
+                      <tr><td>5 kg</td><td>175 g</td><td>225 g</td><td>290 g</td><td>250 g</td><td>250 g</td><td>250 g</td></tr>
+                      <tr><td>7,5 kg</td><td>263 g</td><td>338 g</td><td>435 g</td><td>375 g</td><td>375 g</td><td>375 g</td></tr>
+                      <tr><td>10 kg</td><td>200 g</td><td>380 g</td><td>420 g</td><td>400 g</td><td>400 g</td><td>400 g</td></tr>
+                      <tr><td>12,5 kg</td><td>250 g</td><td>475 g</td><td>525 g</td><td>500 g</td><td>500 g</td><td>500 g</td></tr>
+                      <tr><td>15 kg</td><td>300 g</td><td>570 g</td><td>630 g</td><td>600 g</td><td>600 g</td><td>600 g</td></tr>
+                      <tr><td>20 kg</td><td>340 g</td><td>640 g</td><td>680 g</td><td>760 g</td><td>680 g</td><td>680 g</td></tr>
+                      <tr><td>25 kg</td><td>425 g</td><td>800 g</td><td>850 g</td><td>950 g</td><td>850 g</td><td>850 g</td></tr>
+                      <tr><td>30 kg</td><td>510 g</td><td>960 g</td><td>1.020 g</td><td>1.140 g</td><td>1.020 g</td><td>1.020 g</td></tr>
+                      <tr><td>40 kg</td><td>520 g</td><td>1.000 g</td><td>1.160 g</td><td>1.280 g</td><td>1.360 g</td><td>1.200 g</td></tr>
+                      <tr><td>60 kg</td><td>780 g</td><td>1.500 g</td><td>1.740 g</td><td>1.920 g</td><td>2.040 g</td><td>1.800 g</td></tr>
+                      <tr><td>80 kg</td><td>1.040 g</td><td>2.000 g</td><td>2.320 g</td><td>2.560 g</td><td>2.720 g</td><td>2.400 g</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+                <div class="food-recommendation-amount" id="food-recommendation-amount-2"></div>
+              </div>
+            </div>
+          </div>
+        </section>
       </section>
 
       <section class="card stats" data-tab="today">
@@ -207,63 +275,52 @@
         <p id="settings-result" class="import-result" aria-live="polite"></p>
 
         <section class="settings-subsection">
-          <h3 id="heading-food">Essen</h3>
-          <div class="food-accordion">
-            <button class="food-accordion-btn" type="button" aria-expanded="false" aria-controls="food-accordion-panel-1" id="food-accordion-btn-1">
-              <span id="food-accordion-title-1">YOUNG PACK MINI (vet-concept)</span>
-              <span id="food-accordion-summary-1" class="food-accordion-summary">—</span>
-            </button>
-            <div class="food-accordion-panel" id="food-accordion-panel-1" hidden>
-              <div class="food-recommendation">
-                <div class="food-recommendation-header">Fütterungsempfehlung (2-12 Monate)</div>
-                <img src="/images/young-pack-mini-2-4-6-12.png" alt="Fütterungstabelle 2-12 Monate" style="max-width:100%;margin-bottom:1em" />
-                <div class="food-recommendation-header">Fütterungsempfehlung (6-12 Monate)</div>
-                <img src="/images/young-pack-mini-6-9-12.png" alt="Fütterungstabelle 6-12 Monate" style="max-width:100%" />
-                <div class="food-recommendation-amount" id="food-recommendation-amount-1"></div>
-              </div>
-            </div>
+          <h3 id="heading-food-config">Futter Tracking</h3>
+          <p id="food-config-subtitle" class="timeline-subtitle">Aktiviere Futtersorten und definiere je Sorte drei Quick-Add-Werte.</p>
 
-            <button class="food-accordion-btn" type="button" aria-expanded="false" aria-controls="food-accordion-panel-2" id="food-accordion-btn-2">
-              <span id="food-accordion-title-2">PLATINUM Menu Puppy Chicken</span>
-              <span id="food-accordion-summary-2" class="food-accordion-summary">—</span>
-            </button>
-            <div class="food-accordion-panel" id="food-accordion-panel-2" hidden>
-              <div class="food-recommendation">
-                <div class="food-recommendation-header">Tägliche Futtermenge (laut Hersteller)</div>
-                <div class="food-table-wrap">
-                  <table class="food-table">
-                    <thead>
-                      <tr>
-                        <th>Zielgewicht</th>
-                        <th>2 Mon</th>
-                        <th>4 Mon</th>
-                        <th>6 Mon</th>
-                        <th>8 Mon</th>
-                        <th>10 Mon</th>
-                        <th>12 Mon</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr><td>2,5 kg</td><td>88 g</td><td>113 g</td><td>145 g</td><td>125 g</td><td>125 g</td><td>125 g</td></tr>
-                      <tr><td>5 kg</td><td>175 g</td><td>225 g</td><td>290 g</td><td>250 g</td><td>250 g</td><td>250 g</td></tr>
-                      <tr><td>7,5 kg</td><td>263 g</td><td>338 g</td><td>435 g</td><td>375 g</td><td>375 g</td><td>375 g</td></tr>
-                      <tr><td>10 kg</td><td>200 g</td><td>380 g</td><td>420 g</td><td>400 g</td><td>400 g</td><td>400 g</td></tr>
-                      <tr><td>12,5 kg</td><td>250 g</td><td>475 g</td><td>525 g</td><td>500 g</td><td>500 g</td><td>500 g</td></tr>
-                      <tr><td>15 kg</td><td>300 g</td><td>570 g</td><td>630 g</td><td>600 g</td><td>600 g</td><td>600 g</td></tr>
-                      <tr><td>20 kg</td><td>340 g</td><td>640 g</td><td>680 g</td><td>760 g</td><td>680 g</td><td>680 g</td></tr>
-                      <tr><td>25 kg</td><td>425 g</td><td>800 g</td><td>850 g</td><td>950 g</td><td>850 g</td><td>850 g</td></tr>
-                      <tr><td>30 kg</td><td>510 g</td><td>960 g</td><td>1.020 g</td><td>1.140 g</td><td>1.020 g</td><td>1.020 g</td></tr>
-                      <tr><td>40 kg</td><td>520 g</td><td>1.000 g</td><td>1.160 g</td><td>1.280 g</td><td>1.360 g</td><td>1.200 g</td></tr>
-                      <tr><td>60 kg</td><td>780 g</td><td>1.500 g</td><td>1.740 g</td><td>1.920 g</td><td>2.040 g</td><td>1.800 g</td></tr>
-                      <tr><td>80 kg</td><td>1.040 g</td><td>2.000 g</td><td>2.320 g</td><td>2.560 g</td><td>2.720 g</td><td>2.400 g</td></tr>
-                    </tbody>
-                  </table>
-                </div>
-                <div class="food-recommendation-amount" id="food-recommendation-amount-2"></div>
-              </div>
+          <div class="food-config-card">
+            <label class="settings-toggle">
+              <input id="settings-food-young-enabled" type="checkbox" />
+              <span id="settings-food-young-enabled-label">YOUNG PACK MINI wird aktuell gefüttert</span>
+            </label>
+            <div class="food-chip-grid">
+              <label>
+                <span id="settings-food-young-chip-1-label">Quick Add 1 (g)</span>
+                <input id="settings-food-young-chip-1" type="number" min="1" step="1" inputmode="numeric" />
+              </label>
+              <label>
+                <span id="settings-food-young-chip-2-label">Quick Add 2 (g)</span>
+                <input id="settings-food-young-chip-2" type="number" min="1" step="1" inputmode="numeric" />
+              </label>
+              <label>
+                <span id="settings-food-young-chip-3-label">Quick Add 3 (g)</span>
+                <input id="settings-food-young-chip-3" type="number" min="1" step="1" inputmode="numeric" />
+              </label>
+            </div>
+          </div>
+
+          <div class="food-config-card">
+            <label class="settings-toggle">
+              <input id="settings-food-platinum-enabled" type="checkbox" />
+              <span id="settings-food-platinum-enabled-label">PLATINUM Menu Puppy Chicken wird aktuell gefüttert</span>
+            </label>
+            <div class="food-chip-grid">
+              <label>
+                <span id="settings-food-platinum-chip-1-label">Quick Add 1 (g)</span>
+                <input id="settings-food-platinum-chip-1" type="number" min="1" step="1" inputmode="numeric" />
+              </label>
+              <label>
+                <span id="settings-food-platinum-chip-2-label">Quick Add 2 (g)</span>
+                <input id="settings-food-platinum-chip-2" type="number" min="1" step="1" inputmode="numeric" />
+              </label>
+              <label>
+                <span id="settings-food-platinum-chip-3-label">Quick Add 3 (g)</span>
+                <input id="settings-food-platinum-chip-3" type="number" min="1" step="1" inputmode="numeric" />
+              </label>
             </div>
           </div>
         </section>
+
         <section class="settings-subsection">
           <h3 id="heading-data">Daten</h3>
           <p id="data-subtitle" class="timeline-subtitle">Alle Einträge bleiben gespeichert und können exportiert werden.</p>
