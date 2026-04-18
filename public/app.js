@@ -292,78 +292,121 @@ function getActiveFoodProfileKeys() {
   return Object.keys(FOOD_PROFILE_DEFINITIONS).filter((foodKey) => appSettings.foodProfiles?.[foodKey]?.enabled);
 }
 
-function renderFeedQuickAddButtons() {
-  const quickAddRow = document.getElementById('feed-quick-add');
-  if (!quickAddRow) return;
+function initializeFeedMixAmounts() {
+  const nextMix = {};
+  const activeKeys = getActiveFoodProfileKeys();
+  activeKeys.forEach((foodKey) => {
+    const existingValue = Number(feedMixAmounts?.[foodKey]);
+    nextMix[foodKey] = Number.isFinite(existingValue) && existingValue > 0 ? existingValue : 0;
+  });
+  feedMixAmounts = nextMix;
+}
 
-  const profile = appSettings.foodProfiles?.[selectedFeedFoodKey];
-  if (!appSettings.quickAddEnabled || !profile) {
-    quickAddRow.style.display = 'none';
-    quickAddRow.innerHTML = '';
-    return;
+function getPendingFeedMixTotal() {
+  return Object.values(feedMixAmounts).reduce((sum, value) => {
+    const amount = Number(value);
+    return Number.isFinite(amount) && amount > 0 ? sum + amount : sum;
+  }, 0);
+}
+
+function updateFeedPreviewStatus() {
+  const previewEl = document.getElementById('feed-preview-status');
+  if (!previewEl) return;
+
+  const pending = getPendingFeedMixTotal();
+  const projectedFed = todayFedGrams + pending;
+
+  if (appSettings.dailyTargetG > 0) {
+    const projectedPercent = Math.min(999, Math.round((projectedFed / appSettings.dailyTargetG) * 100));
+    const remaining = Math.max(0, appSettings.dailyTargetG - projectedFed);
+    previewEl.textContent = t('feedPreviewWithTarget', {
+      pending,
+      projectedPercent,
+      projectedFed,
+      target: appSettings.dailyTargetG,
+      remaining,
+    });
+  } else {
+    previewEl.textContent = t('feedPreviewNoTarget', {
+      pending,
+      projectedFed,
+    });
   }
-
-  quickAddRow.style.display = 'flex';
-  quickAddRow.innerHTML = profile.quickAddValues
-    .map((grams) => `<button type="button" class="chip-btn" data-gram="${grams}">+${grams}g</button>`)
-    .join('');
 }
 
 function renderFeedFoodOptions() {
   const optionsWrap = document.getElementById('feed-food-options');
   const emptyHint = document.getElementById('feed-food-options-empty');
-  const feedAmountInput = document.getElementById('feed-amount-g');
   const feedNoteInput = document.getElementById('feed-note');
   const feedButton = document.getElementById('feed');
 
-  if (!optionsWrap || !emptyHint || !feedAmountInput || !feedNoteInput || !feedButton) return;
+  if (!optionsWrap || !emptyHint || !feedNoteInput || !feedButton) return;
 
   const activeKeys = getActiveFoodProfileKeys();
+  initializeFeedMixAmounts();
 
   if (!activeKeys.length) {
-    selectedFeedFoodKey = null;
+    feedMixAmounts = {};
     optionsWrap.innerHTML = '';
     emptyHint.hidden = false;
-    feedAmountInput.disabled = true;
     feedNoteInput.disabled = true;
     feedButton.disabled = true;
-    renderFeedQuickAddButtons();
+    updateFeedPreviewStatus();
     return;
   }
 
-  if (!activeKeys.includes(selectedFeedFoodKey)) {
-    [selectedFeedFoodKey] = activeKeys;
-  }
-
   emptyHint.hidden = true;
-  feedAmountInput.disabled = false;
   feedNoteInput.disabled = false;
   feedButton.disabled = false;
 
   optionsWrap.innerHTML = activeKeys
     .map((foodKey) => {
-      const isActive = foodKey === selectedFeedFoodKey;
-      return `<button type="button" class="chip-btn${isActive ? ' active' : ''}" data-food-key="${foodKey}">${getFoodDisplayName(foodKey)}</button>`;
+      const profile = appSettings.foodProfiles?.[foodKey];
+      const quickAddValues = appSettings.quickAddEnabled ? (profile?.quickAddValues || []) : [];
+      const currentAmount = Math.max(0, Math.floor(Number(feedMixAmounts?.[foodKey] || 0)));
+      const chipsMarkup = quickAddValues
+        .map((grams) => `<button type="button" class="chip-btn" data-food-key="${foodKey}" data-gram="${grams}">+${grams}g</button>`)
+        .join('');
+
+      return `
+        <div class="food-mix-row">
+          <div class="food-mix-header">
+            <span class="food-mix-name">${getFoodDisplayName(foodKey)}</span>
+          </div>
+          <div class="feed-input-row">
+            <label class="feed-amount-label" for="feed-amount-${foodKey}">${t('feedAmountLabel')}</label>
+            <div class="feed-amount-field">
+              <input type="number" id="feed-amount-${foodKey}" class="feed-mix-input" data-food-key="${foodKey}" min="0" step="1" inputmode="numeric" value="${currentAmount}" />
+              <span class="feed-unit">g</span>
+            </div>
+          </div>
+          <div class="quick-add-row food-mix-chips">${chipsMarkup}</div>
+        </div>
+      `;
     })
     .join('');
 
-  const profile = appSettings.foodProfiles?.[selectedFeedFoodKey];
-  if (profile?.quickAddValues?.length) {
-    feedAmountInput.value = String(profile.quickAddValues[0]);
-  }
-
-  renderFeedQuickAddButtons();
+  updateFeedPreviewStatus();
 }
 
-function buildFeedNoteForSelectedFood(rawNote) {
-  if (!selectedFeedFoodKey) {
+function buildFeedNoteForMix(rawNote) {
+  const breakdown = Object.entries(feedMixAmounts)
+    .map(([foodKey, amount]) => {
+      const grams = Math.max(0, Math.floor(Number(amount) || 0));
+      if (grams <= 0) return null;
+      return `${grams}g ${getFoodDisplayName(foodKey)}`;
+    })
+    .filter(Boolean)
+    .join(' + ');
+
+  if (!breakdown) {
     return rawNote;
   }
-  const foodName = getFoodDisplayName(selectedFeedFoodKey);
+
   if (!rawNote) {
-    return `[${foodName}]`;
+    return `[${breakdown}]`;
   }
-  return `[${foodName}] ${rawNote}`;
+  return `[${breakdown}] ${rawNote}`;
 }
 
 async function api(path, options = {}) {
@@ -409,7 +452,7 @@ let quickAddUndoCountdownTimerId = null;
 let quickAddUndoEventId = null;
 let recentEventsCache = [];
 let editFeedbackTimeoutId = null;
-let selectedFeedFoodKey = null;
+let feedMixAmounts = {};
 
 const TRANSLATIONS = {
   de: {
@@ -460,8 +503,11 @@ const TRANSLATIONS = {
     walkNotePlaceholder: 'Notiz (optional)',
     feedNotePlaceholder: 'Füttern-Notiz (optional)',
     feedAmountLabel: 'Menge',
-    feedFoodOptionsLabel: 'Futtersorte zum Tracken',
+    feedFoodOptionsLabel: 'Futtersorten mischen',
     feedFoodOptionsEmpty: 'Aktiviere in den Einstellungen mindestens eine Futtersorte.',
+    feedPreviewWithTarget: 'Nach dieser Fütterung: {projectedPercent}% ({projectedFed}/{target} g), offen: {remaining} g.',
+    feedPreviewNoTarget: 'Nach dieser Fütterung: {projectedFed} g gesamt heute ({pending} g ausgewählt).',
+    feedMixNoAmount: 'Bitte zuerst eine Futtermenge > 0 auswählen.',
     sleepNotePlaceholder: 'Schlaf-Notiz (optional)',
     buttonStartWalk: '🚶 Spaziergang starten',
     buttonEndWalk: '✅ Spaziergang beenden',
@@ -655,8 +701,11 @@ const TRANSLATIONS = {
     walkNotePlaceholder: 'Note (optional)',
     feedNotePlaceholder: 'Feeding note (optional)',
     feedAmountLabel: 'Amount',
-    feedFoodOptionsLabel: 'Food to track',
+    feedFoodOptionsLabel: 'Mix food types',
     feedFoodOptionsEmpty: 'Enable at least one food in settings.',
+    feedPreviewWithTarget: 'After this feeding: {projectedPercent}% ({projectedFed}/{target} g), remaining: {remaining} g.',
+    feedPreviewNoTarget: 'After this feeding: {projectedFed} g total today ({pending} g selected).',
+    feedMixNoAmount: 'Please select a feed amount > 0 first.',
     sleepNotePlaceholder: 'Sleep note (optional)',
     buttonStartWalk: '🚶 Start walk',
     buttonEndWalk: '✅ End walk',
@@ -1049,7 +1098,6 @@ function applySettingsToForm() {
   const weightInput = document.getElementById('settings-weight-kg');
   const targetWeightInput = document.getElementById('settings-target-weight-kg');
   const quickAddToggle = document.getElementById('settings-enable-quick-add');
-  const feedAmountInput = document.getElementById('feed-amount-g');
   const settingsFoodYoungEnabled = document.getElementById('settings-food-young-enabled');
   const settingsFoodYoungChip1 = document.getElementById('settings-food-young-chip-1');
   const settingsFoodYoungChip2 = document.getElementById('settings-food-young-chip-2');
@@ -1076,11 +1124,7 @@ function applySettingsToForm() {
   if (settingsFoodPlatinumChip1) settingsFoodPlatinumChip1.value = String(platinumProfile?.quickAddValues?.[0] ?? 150);
   if (settingsFoodPlatinumChip2) settingsFoodPlatinumChip2.value = String(platinumProfile?.quickAddValues?.[1] ?? 200);
   if (settingsFoodPlatinumChip3) settingsFoodPlatinumChip3.value = String(platinumProfile?.quickAddValues?.[2] ?? 250);
-  if (feedAmountInput && !feedAmountInput.value) {
-    const firstActiveKey = getActiveFoodProfileKeys()[0];
-    const firstValue = firstActiveKey ? appSettings.foodProfiles?.[firstActiveKey]?.quickAddValues?.[0] : appSettings.defaultPortionG;
-    feedAmountInput.value = String(firstValue ?? appSettings.defaultPortionG);
-  }
+  initializeFeedMixAmounts();
 
   applyQuickAddVisibility();
   renderFeedOpenStatus();
@@ -1089,7 +1133,7 @@ function applySettingsToForm() {
 }
 
 function applyQuickAddVisibility() {
-  renderFeedQuickAddButtons();
+  renderFeedFoodOptions();
 }
 
 function toLocalDateInputValue(date) {
@@ -1243,6 +1287,7 @@ function renderFeedOpenStatus() {
     if (feedProgressWrapEl) {
       feedProgressWrapEl.style.display = 'none';
     }
+    updateFeedPreviewStatus();
     return;
   }
 
@@ -1259,6 +1304,7 @@ function renderFeedOpenStatus() {
   if (feedProgressTextEl) {
     feedProgressTextEl.textContent = `${progressPercent}%`;
   }
+  updateFeedPreviewStatus();
 }
 
 function hideQuickAddBanner() {
@@ -2193,8 +2239,7 @@ function bindActions() {
   const pipiCheckbox = document.getElementById('pipi');
   const pupuCheckbox = document.getElementById('pupu');
   const feedButton = document.getElementById('feed');
-  const feedAmountInput = document.getElementById('feed-amount-g');
-  const quickAddRow = document.getElementById('feed-quick-add');
+  const feedMixList = document.getElementById('feed-food-options');
   const startSleepButton = document.getElementById('start-sleep');
   const endSleepButton = document.getElementById('end-sleep');
   const startAloneButton = document.getElementById('start-alone');
@@ -2230,7 +2275,6 @@ function bindActions() {
   const settingsFoodPlatinumChip1 = document.getElementById('settings-food-platinum-chip-1');
   const settingsFoodPlatinumChip2 = document.getElementById('settings-food-platinum-chip-2');
   const settingsFoodPlatinumChip3 = document.getElementById('settings-food-platinum-chip-3');
-  const feedFoodOptions = document.getElementById('feed-food-options');
   const eventsList = document.getElementById('events');
   const editEventDialog = document.getElementById('edit-event-dialog');
   const editEventForm = document.getElementById('edit-event-form');
@@ -2260,37 +2304,30 @@ function bindActions() {
     setActiveTab('settings');
   });
 
-  feedFoodOptions?.addEventListener('click', (event) => {
-    const button = event.target.closest('button[data-food-key]');
-    if (!button) return;
-    const nextFoodKey = String(button.dataset.foodKey || '');
-    if (!FOOD_PROFILE_DEFINITIONS[nextFoodKey]) return;
-    selectedFeedFoodKey = nextFoodKey;
-    renderFeedFoodOptions();
+  feedMixList?.addEventListener('input', (event) => {
+    const input = event.target.closest('.feed-mix-input');
+    if (!input) return;
+    const foodKey = String(input.dataset.foodKey || '');
+    if (!FOOD_PROFILE_DEFINITIONS[foodKey]) return;
+    const amount = Number(input.value);
+    feedMixAmounts[foodKey] = Number.isFinite(amount) && amount > 0 ? Math.floor(amount) : 0;
+    updateFeedPreviewStatus();
   });
 
-  quickAddRow?.addEventListener('click', (event) => {
-    const chip = event.target.closest('.chip-btn');
-    if (!chip || chip.dataset.foodKey) return;
+  feedMixList?.addEventListener('click', (event) => {
+    const chip = event.target.closest('button[data-food-key][data-gram]');
+    if (!chip) return;
+    const foodKey = String(chip.dataset.foodKey || '');
+    if (!FOOD_PROFILE_DEFINITIONS[foodKey]) return;
     const gramValue = Number(chip.dataset.gram);
-    if (!Number.isFinite(gramValue)) return;
+    if (!Number.isFinite(gramValue) || gramValue <= 0) return;
 
-    const userNote = document.getElementById('feed-note').value.trim();
-    const note = buildFeedNoteForSelectedFood(userNote);
-    saveFeedEntry(gramValue, note)
-      .then(({ id, amountG }) => {
-        if (feedAmountInput) {
-          feedAmountInput.value = String(gramValue);
-        }
-        if (document.getElementById('feed-note')) {
-          document.getElementById('feed-note').value = '';
-        }
-        showQuickAddBanner(id, amountG);
-        refreshAll();
-      })
-      .catch((error) => {
-        alert(translateServerError(error.message));
-      });
+    const nextAmount = Math.max(0, Math.floor(Number(feedMixAmounts?.[foodKey] || 0))) + Math.floor(gramValue);
+    feedMixAmounts[foodKey] = nextAmount;
+
+    const input = document.getElementById(`feed-amount-${foodKey}`);
+    if (input) input.value = String(nextAmount);
+    updateFeedPreviewStatus();
   });
 
   quickAddUndoButton?.addEventListener('click', async () => {
@@ -2447,11 +2484,6 @@ function bindActions() {
 
     saveAppSettings();
     applySettingsToForm();
-    if (feedAmountInput) {
-      const activeFood = getActiveFoodProfileKeys()[0];
-      const suggested = activeFood ? appSettings.foodProfiles?.[activeFood]?.quickAddValues?.[0] : appSettings.defaultPortionG;
-      feedAmountInput.value = String(suggested ?? appSettings.defaultPortionG);
-    }
     if (settingsResultEl) settingsResultEl.textContent = t('settingsSaved');
   });
 
@@ -2509,19 +2541,18 @@ function bindActions() {
 
   feedButton.addEventListener('click', async () => {
     const userNote = document.getElementById('feed-note').value.trim();
-    const note = buildFeedNoteForSelectedFood(userNote);
-    const amountG = Number(feedAmountInput?.value ?? NaN);
-    const fallbackAmount = selectedFeedFoodKey
-      ? appSettings.foodProfiles?.[selectedFeedFoodKey]?.quickAddValues?.[0]
-      : appSettings.defaultPortionG;
-    const normalizedAmountG = Number.isFinite(amountG) ? Math.max(0, Math.floor(amountG)) : Math.max(0, fallbackAmount ?? appSettings.defaultPortionG);
+    const normalizedAmountG = getPendingFeedMixTotal();
+    if (!Number.isFinite(normalizedAmountG) || normalizedAmountG <= 0) {
+      alert(t('feedMixNoAmount'));
+      return;
+    }
+    const note = buildFeedNoteForMix(userNote);
 
     try {
       await saveFeedEntry(normalizedAmountG, note);
       document.getElementById('feed-note').value = '';
-      if (feedAmountInput) {
-        feedAmountInput.value = String(normalizedAmountG);
-      }
+      initializeFeedMixAmounts();
+      renderFeedFoodOptions();
       hideQuickAddBanner();
       await refreshAll();
     } catch (error) {

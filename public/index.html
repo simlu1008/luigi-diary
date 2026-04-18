@@ -71,22 +71,11 @@
 
         <div class="feed-block">
           <div>
-            <p id="feed-food-options-label" class="timeline-subtitle">Futtersorte zum Tracken</p>
-            <div id="feed-food-options" class="food-track-options"></div>
+            <p id="feed-food-options-label" class="timeline-subtitle">Futtersorten mischen</p>
+            <div id="feed-food-options" class="food-mix-list"></div>
             <p id="feed-food-options-empty" class="timeline-subtitle" hidden>Aktiviere in den Einstellungen mindestens eine Futtersorte.</p>
           </div>
-          <div class="feed-input-row">
-            <label class="feed-amount-label" for="feed-amount-g" id="feed-amount-label">Menge</label>
-            <div class="feed-amount-field">
-              <input type="number" id="feed-amount-g" min="0" step="1" inputmode="numeric" placeholder="0" />
-              <span class="feed-unit">g</span>
-            </div>
-          </div>
-          <div id="feed-quick-add" class="quick-add-row">
-            <button type="button" class="chip-btn" data-gram="25">+25g</button>
-            <button type="button" class="chip-btn" data-gram="30">+30g</button>
-            <button type="button" class="chip-btn" data-gram="50">+50g</button>
-          </div>
+          <p id="feed-preview-status" class="feed-progress-text"></p>
           <input type="text" id="feed-note" placeholder="Füttern-Notiz (optional)" />
           <button id="feed" class="btn btn-success">🍽️ Gefüttert</button>
         </div>

@@ -439,10 +439,31 @@ h1 {
   gap: 8px;
 }
 
-.food-track-options {
-  display: flex;
-  flex-wrap: wrap;
+.food-mix-list {
+  display: grid;
+  gap: 10px;
+}
+
+.food-mix-row {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 10px;
+  display: grid;
   gap: 8px;
+}
+
+.food-mix-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.food-mix-name {
+  font-weight: 600;
+}
+
+.food-mix-chips {
+  flex-wrap: wrap;
 }
 
 .chip-btn {
