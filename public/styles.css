@@ -246,6 +246,87 @@ h1 {
   color: var(--muted);
 }
 
+.food-accordion {
+  display: grid;
+  gap: 8px;
+}
+
+.food-accordion-btn {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: #fff;
+  color: var(--text);
+  padding: 10px 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  text-align: left;
+  font-size: 14px;
+}
+
+.food-accordion-summary {
+  color: var(--primary);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.food-accordion-panel {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 10px;
+  background: #fff;
+}
+
+.food-recommendation {
+  display: grid;
+  gap: 8px;
+}
+
+.food-recommendation-header {
+  font-weight: 600;
+}
+
+.food-recommendation-amount {
+  margin-top: 2px;
+  color: var(--text);
+  font-weight: 500;
+}
+
+.food-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.food-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 620px;
+  font-size: 13px;
+}
+
+.food-table th,
+.food-table td {
+  border: 1px solid var(--border);
+  padding: 6px 8px;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.food-table th {
+  background: #f3f4f6;
+  font-weight: 700;
+}
+
+.food-table td:first-child,
+.food-table th:first-child {
+  text-align: left;
+  font-weight: 600;
+}
+
 .range-toggle {
   display: grid;
   grid-template-columns: repeat(2, minmax(120px, 1fr));

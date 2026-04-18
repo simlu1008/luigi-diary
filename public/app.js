@@ -1,55 +1,175 @@
-// --- Futter-Akkordeon und Futtermengenberechnung ---
-function setupFoodAccordion() {
-  const btn = document.getElementById('food-accordion-btn-1');
-  const panel = document.getElementById('food-accordion-panel-1');
-  const amountEl = document.getElementById('food-recommendation-amount');
-  if (!btn || !panel || !amountEl) return;
+const FOOD_CONFIGS = {
+  youngPackMini: {
+    months: [2, 3, 4, 6, 9, 12],
+    weights: [2, 3, 5, 7.5, 10, 15],
+    maxTargetWeightKg: 15,
+    unsupportedKey: 'foodUnsupportedTargetWeightYoungPackMini',
+    table: {
+      2: { 2: 40, 3: 55, 5: 85, 7.5: 105, 10: 130, 15: 175 },
+      3: { 2: 50, 3: 55, 5: 95, 7.5: 125, 10: 155, 15: 210 },
+      4: { 2: 50, 3: 70, 5: 105, 7.5: 135, 10: 170, 15: 230 },
+      6: { 2: 55, 3: 75, 5: 105, 7.5: 145, 10: 180, 15: 230 },
+      9: { 2: 55, 3: 70, 5: 105, 7.5: 145, 10: 180, 15: 225 },
+      12: { 2: 50, 3: 70, 5: 105, 7.5: 140, 10: 175, 15: 210 },
+    },
+  },
+  platinumMenuPuppyChicken: {
+    months: [2, 4, 6, 8, 10, 12],
+    weights: [2.5, 5, 7.5, 10, 12.5, 15, 20, 25, 30, 40, 60, 80],
+    maxTargetWeightKg: 80,
+    unsupportedKey: 'foodUnsupportedTargetWeightPlatinumPuppyChicken',
+    table: {
+      2: { 2.5: 88, 5: 175, 7.5: 263, 10: 200, 12.5: 250, 15: 300, 20: 340, 25: 425, 30: 510, 40: 520, 60: 780, 80: 1040 },
+      4: { 2.5: 113, 5: 225, 7.5: 338, 10: 380, 12.5: 475, 15: 570, 20: 640, 25: 800, 30: 960, 40: 1000, 60: 1500, 80: 2000 },
+      6: { 2.5: 145, 5: 290, 7.5: 435, 10: 420, 12.5: 525, 15: 630, 20: 680, 25: 850, 30: 1020, 40: 1160, 60: 1740, 80: 2320 },
+      8: { 2.5: 125, 5: 250, 7.5: 375, 10: 400, 12.5: 500, 15: 600, 20: 760, 25: 950, 30: 1140, 40: 1280, 60: 1920, 80: 2560 },
+      10: { 2.5: 125, 5: 250, 7.5: 375, 10: 400, 12.5: 500, 15: 600, 20: 680, 25: 850, 30: 1020, 40: 1360, 60: 2040, 80: 2720 },
+      12: { 2.5: 125, 5: 250, 7.5: 375, 10: 400, 12.5: 500, 15: 600, 20: 680, 25: 850, 30: 1020, 40: 1200, 60: 1800, 80: 2400 },
+    },
+  },
+};
 
-  btn.addEventListener('click', () => {
-    const expanded = btn.getAttribute('aria-expanded') === 'true';
-    btn.setAttribute('aria-expanded', String(!expanded));
-    panel.hidden = expanded;
-    if (!expanded) {
-      // Beim Öffnen: Menge berechnen und anzeigen
-      amountEl.innerHTML = renderFoodAmountRecommendation();
-    }
-  });
+function formatKg(value) {
+  return Number(value).toLocaleString(getLocale(), { maximumFractionDigits: 1 });
 }
 
-function renderFoodAmountRecommendation() {
-  // Nutze Settings: birthDate, currentWeightKg, dailyTargetG
-  const birthDate = appSettings.birthDate;
-  const weight = appSettings.currentWeightKg;
-  if (!birthDate || !weight) {
-    return '<span style="color:#b00">Bitte Geburtsdatum und aktuelles Gewicht in den Einstellungen angeben.</span>';
+function getAgeInMonths(birthDateValue) {
+  if (!birthDateValue) return null;
+  const birthDate = new Date(`${birthDateValue}T00:00:00`);
+  if (Number.isNaN(birthDate.getTime())) return null;
+
+  const now = new Date();
+  if (birthDate > now) return null;
+
+  let months = (now.getFullYear() - birthDate.getFullYear()) * 12 + (now.getMonth() - birthDate.getMonth());
+  if (now.getDate() < birthDate.getDate()) {
+    months -= 1;
   }
-  const today = new Date();
-  const birth = new Date(birthDate);
-  const months = (today.getFullYear() - birth.getFullYear()) * 12 + (today.getMonth() - birth.getMonth());
-  // Tabelle: 2-4-6-9-12 Monate, Gewicht in kg
-  // Werte aus den Bildern (siehe Mapping unten)
-  const feedingTable = [
-    // Monat: [kg2, kg3, kg5, kg7.5, kg10, kg15]
-    { m: 2, v: [40, 55, 85, 105, 135, 175] },
-    { m: 3, v: [50, 55, 95, 125, 155, 210] },
-    { m: 4, v: [50, 70, 105, 135, 170, 225] },
-    { m: 6, v: [55, 75, 105, 145, 180, 250] },
-    { m: 9, v: [55, 70, 105, 145, 180, 250] },
-    { m: 12, v: [50, 70, 105, 140, 175, 250] },
-  ];
-  // Finde nächste Zeile
-  let row = feedingTable.findLast(r => months >= r.m) || feedingTable[0];
-  // Finde Spalte
-  const weights = [2, 3, 5, 7.5, 10, 15];
-  let col = weights.findIndex(w => weight <= w);
-  if (col === -1) col = weights.length - 1;
-  const rec = row.v[col];
-  return `<b>Empfohlene Tagesmenge:</b> ${rec} g (Alter: ${months} Monate, Gewicht: ${weight} kg)`;
+  return Math.max(0, months);
 }
-// --- Setup Food Accordion nach DOM laden ---
-document.addEventListener('DOMContentLoaded', () => {
-  setupFoodAccordion();
-});
+
+function getClosestWeight(weights, targetWeightKg) {
+  let closest = weights[0];
+  let minDistance = Math.abs(targetWeightKg - closest);
+
+  for (const weight of weights) {
+    const distance = Math.abs(targetWeightKg - weight);
+    if (distance < minDistance) {
+      minDistance = distance;
+      closest = weight;
+    }
+  }
+
+  return closest;
+}
+
+function getMonthBracket(ageInMonths, months) {
+  let bracket = months[0];
+  for (const month of months) {
+    if (ageInMonths >= month) {
+      bracket = month;
+    }
+  }
+  return bracket;
+}
+
+function getFoodRecommendation(foodConfig) {
+  const ageInMonths = getAgeInMonths(appSettings.birthDate);
+  if (ageInMonths === null) {
+    return { errorKey: 'foodMissingBirthDate' };
+  }
+
+  const targetWeightKg = appSettings.targetWeightKg;
+  if (!Number.isFinite(targetWeightKg) || targetWeightKg <= 0) {
+    return { errorKey: 'foodMissingTargetWeight' };
+  }
+
+  if (targetWeightKg > foodConfig.maxTargetWeightKg) {
+    return { errorKey: foodConfig.unsupportedKey };
+  }
+
+  const minMonth = foodConfig.months[0];
+  const maxMonth = foodConfig.months[foodConfig.months.length - 1];
+  const monthBracket = getMonthBracket(Math.max(minMonth, Math.min(maxMonth, ageInMonths)), foodConfig.months);
+  const matchedWeightKg = getClosestWeight(foodConfig.weights, targetWeightKg);
+  const gramsPerDay = foodConfig.table[monthBracket][matchedWeightKg];
+
+  return {
+    gramsPerDay,
+    ageInMonths,
+    monthBracket,
+    targetWeightKg,
+    matchedWeightKg,
+    isApproxWeight: Math.abs(targetWeightKg - matchedWeightKg) > 0.001,
+  };
+}
+
+function getYoungPackMiniRecommendation() {
+  return getFoodRecommendation(FOOD_CONFIGS.youngPackMini);
+}
+
+function getPlatinumMenuPuppyChickenRecommendation() {
+  return getFoodRecommendation(FOOD_CONFIGS.platinumMenuPuppyChicken);
+}
+
+function updateFoodRecommendationCard(summaryElementId, amountElementId, recommendation) {
+  const summaryEl = document.getElementById(summaryElementId);
+  const amountEl = document.getElementById(amountElementId);
+  if (!summaryEl || !amountEl) return;
+
+  if (recommendation.errorKey) {
+    summaryEl.textContent = t('foodSummaryPending');
+    amountEl.textContent = t(recommendation.errorKey);
+    return;
+  }
+
+  summaryEl.textContent = t('foodSummaryGrams', { grams: recommendation.gramsPerDay });
+  const targetWeightText = formatKg(recommendation.targetWeightKg);
+  const matchedWeightText = formatKg(recommendation.matchedWeightKg);
+
+  amountEl.textContent = recommendation.isApproxWeight
+    ? t('foodRecommendationApprox', {
+      grams: recommendation.gramsPerDay,
+      age: recommendation.ageInMonths,
+      targetWeight: targetWeightText,
+      matchedWeight: matchedWeightText,
+    })
+    : t('foodRecommendationExact', {
+      grams: recommendation.gramsPerDay,
+      age: recommendation.ageInMonths,
+      targetWeight: targetWeightText,
+    });
+}
+
+function updateFoodRecommendationUi() {
+  updateFoodRecommendationCard('food-accordion-summary-1', 'food-recommendation-amount-1', getYoungPackMiniRecommendation());
+  updateFoodRecommendationCard('food-accordion-summary-2', 'food-recommendation-amount-2', getPlatinumMenuPuppyChickenRecommendation());
+}
+
+function setupFoodAccordion() {
+  const buttons = document.querySelectorAll('.food-accordion-btn');
+  if (!buttons.length) return;
+
+  buttons.forEach((btn) => {
+    const panelId = btn.getAttribute('aria-controls');
+    const panel = panelId ? document.getElementById(panelId) : null;
+    if (!panel) return;
+
+    if (btn.dataset.bound === 'true') {
+      return;
+    }
+
+    btn.dataset.bound = 'true';
+    btn.addEventListener('click', () => {
+      const expanded = btn.getAttribute('aria-expanded') === 'true';
+      btn.setAttribute('aria-expanded', String(!expanded));
+      panel.hidden = expanded;
+      updateFoodRecommendationUi();
+    });
+  });
+
+  updateFoodRecommendationUi();
+}
 async function api(path, options = {}) {
   const response = await fetch(path, {
     headers: { 'Content-Type': 'application/json' },
@@ -75,6 +195,7 @@ const DEFAULT_SETTINGS = {
   quickAddEnabled: true,
   birthDate: '',
   currentWeightKg: null,
+  targetWeightKg: null,
 };
 let currentLanguage = 'en';
 let currentTab = 'today';
@@ -108,6 +229,7 @@ const TRANSLATIONS = {
     headingManual: 'Manuell nachtragen',
     headingEvents: 'Letzte Einträge',
     headingData: 'Daten',
+    headingFood: 'Essen',
     headingSettings: 'Einstellungen',
     buttonEditEntry: 'Bearbeiten',
     buttonDeleteEntry: 'Löschen',
@@ -241,12 +363,22 @@ const TRANSLATIONS = {
     settingsDefaultPortionLabel: 'Standard-Portion beim Füttern (g)',
     settingsBirthDateLabel: 'Geburtsdatum',
     settingsWeightLabel: 'Aktuelles Gewicht (kg)',
+    settingsTargetWeightLabel: 'Zielgewicht / Endgewicht (kg)',
     settingsQuickAddLabel: 'Quick-Add Chips aktivieren (25g / 30g / 50g)',
     buttonSaveSettings: '💾 Einstellungen speichern',
     settingsSaved: 'Einstellungen gespeichert.',
     settingsSaveFailed: 'Bitte gültige Werte eingeben.',
     settingsBirthDateInvalid: 'Bitte ein gültiges Geburtsdatum eingeben (nicht in der Zukunft).',
     settingsWeightInvalid: 'Bitte ein gültiges Gewicht eingeben (> 0).',
+    settingsTargetWeightInvalid: 'Bitte ein gültiges Zielgewicht eingeben (> 0).',
+    foodSummaryPending: 'Menge offen',
+    foodSummaryGrams: '{grams} g/Tag',
+    foodMissingBirthDate: 'Bitte zuerst ein gültiges Geburtsdatum in den Einstellungen angeben.',
+    foodMissingTargetWeight: 'Bitte zuerst ein Zielgewicht/Endgewicht in den Einstellungen angeben.',
+    foodUnsupportedTargetWeightYoungPackMini: 'YOUNG PACK MINI ist bis 15 kg Zielgewicht ausgelegt. Bitte für höhere Zielgewichte auf MIDI/MAXI wechseln.',
+    foodUnsupportedTargetWeightPlatinumPuppyChicken: 'PLATINUM Menu Puppy Chicken ist bis 80 kg Zielgewicht ausgelegt.',
+    foodRecommendationExact: 'Empfohlene Tagesmenge: {grams} g (Alter: {age} Monate, Zielgewicht: {targetWeight} kg).',
+    foodRecommendationApprox: 'Empfohlene Tagesmenge: {grams} g (Alter: {age} Monate, Zielgewicht: {targetWeight} kg; nächster Tabellenwert: {matchedWeight} kg).',
     quickAddSaved: '✓ {grams} g gespeichert',
     quickAddUndo: 'Rückgängig',
     quickAddUndone: 'Fütterung rückgängig gemacht.',
@@ -279,6 +411,7 @@ const TRANSLATIONS = {
     headingManual: 'Manual Entry',
     headingEvents: 'Recent Entries',
     headingData: 'Data',
+    headingFood: 'Food',
     headingSettings: 'Settings',
     buttonEditEntry: 'Edit',
     buttonDeleteEntry: 'Delete',
@@ -412,12 +545,22 @@ const TRANSLATIONS = {
     settingsDefaultPortionLabel: 'Default portion for feeding (g)',
     settingsBirthDateLabel: 'Birth date',
     settingsWeightLabel: 'Current weight (kg)',
+    settingsTargetWeightLabel: 'Target/adult weight (kg)',
     settingsQuickAddLabel: 'Enable quick-add chips (25g / 30g / 50g)',
     buttonSaveSettings: '💾 Save settings',
     settingsSaved: 'Settings saved.',
     settingsSaveFailed: 'Please enter valid values.',
     settingsBirthDateInvalid: 'Please enter a valid birth date (not in the future).',
     settingsWeightInvalid: 'Please enter a valid weight (> 0).',
+    settingsTargetWeightInvalid: 'Please enter a valid target weight (> 0).',
+    foodSummaryPending: 'Amount pending',
+    foodSummaryGrams: '{grams} g/day',
+    foodMissingBirthDate: 'Please provide a valid birth date in settings first.',
+    foodMissingTargetWeight: 'Please provide target/adult weight in settings first.',
+    foodUnsupportedTargetWeightYoungPackMini: 'YOUNG PACK MINI is intended for up to 15 kg target weight. Use MIDI/MAXI for higher target weights.',
+    foodUnsupportedTargetWeightPlatinumPuppyChicken: 'PLATINUM Menu Puppy Chicken is intended for up to 80 kg target weight.',
+    foodRecommendationExact: 'Recommended daily amount: {grams} g (Age: {age} months, Target weight: {targetWeight} kg).',
+    foodRecommendationApprox: 'Recommended daily amount: {grams} g (Age: {age} months, Target weight: {targetWeight} kg; nearest table value: {matchedWeight} kg).',
     quickAddSaved: '✓ {grams} g saved',
     quickAddUndo: 'Undo',
     quickAddUndone: 'Feed removed.',
@@ -503,6 +646,7 @@ function applyStaticTranslations() {
   setText('heading-manual', t('headingManual'));
   setText('heading-events', t('headingEvents'));
   setText('heading-data', t('headingData'));
+  setText('heading-food', t('headingFood'));
   setText('heading-settings', t('headingSettings'));
   setText('edit-dialog-title', t('editDialogTitle'));
   setText('edit-dialog-subtitle', t('editDialogSubtitle'));
@@ -576,6 +720,7 @@ function applyStaticTranslations() {
   setText('settings-default-portion-label', t('settingsDefaultPortionLabel'));
   setText('settings-birth-date-label', t('settingsBirthDateLabel'));
   setText('settings-weight-label', t('settingsWeightLabel'));
+  setText('settings-target-weight-label', t('settingsTargetWeightLabel'));
   setText('settings-enable-quick-add-label', t('settingsQuickAddLabel'));
   setText('settings-save', t('buttonSaveSettings'));
   setText('edit-dialog-save', t('editSave'));
@@ -595,8 +740,19 @@ function applyStaticTranslations() {
     languageSelect.setAttribute('aria-label', t('languageAria'));
   }
 
+  const foodTitle = document.getElementById('food-accordion-title-1');
+  if (foodTitle) {
+    foodTitle.textContent = 'YOUNG PACK MINI (vet-concept)';
+  }
+
+  const foodTitle2 = document.getElementById('food-accordion-title-2');
+  if (foodTitle2) {
+    foodTitle2.textContent = 'PLATINUM Menu Puppy Chicken';
+  }
+
   renderEliminationStatus();
   renderFeedOpenStatus();
+  updateFoodRecommendationUi();
 }
 
 function initLanguage() {
@@ -624,6 +780,10 @@ function loadAppSettings() {
     const birthDate = /^\d{4}-\d{2}-\d{2}$/.test(birthDateRaw) ? birthDateRaw : '';
     const parsedWeightNumber = Number(parsed?.currentWeightKg);
     const currentWeightKg = Number.isFinite(parsedWeightNumber) && parsedWeightNumber > 0 ? Number(parsedWeightNumber.toFixed(1)) : null;
+    const parsedTargetWeightNumber = Number(parsed?.targetWeightKg);
+    const targetWeightKg = Number.isFinite(parsedTargetWeightNumber) && parsedTargetWeightNumber > 0
+      ? Number(parsedTargetWeightNumber.toFixed(1))
+      : null;
 
     appSettings = {
       dailyTargetG: Number.isFinite(Number(parsed?.dailyTargetG)) ? Math.max(0, Math.floor(Number(parsed.dailyTargetG))) : DEFAULT_SETTINGS.dailyTargetG,
@@ -631,6 +791,7 @@ function loadAppSettings() {
       quickAddEnabled: parsed?.quickAddEnabled !== false,
       birthDate,
       currentWeightKg,
+      targetWeightKg,
     };
   } catch {
     appSettings = { ...DEFAULT_SETTINGS };
@@ -646,6 +807,7 @@ function applySettingsToForm() {
   const defaultPortionInput = document.getElementById('settings-default-portion-g');
   const birthDateInput = document.getElementById('settings-birth-date');
   const weightInput = document.getElementById('settings-weight-kg');
+  const targetWeightInput = document.getElementById('settings-target-weight-kg');
   const quickAddToggle = document.getElementById('settings-enable-quick-add');
   const feedAmountInput = document.getElementById('feed-amount-g');
 
@@ -653,11 +815,13 @@ function applySettingsToForm() {
   if (defaultPortionInput) defaultPortionInput.value = String(appSettings.defaultPortionG);
   if (birthDateInput) birthDateInput.value = appSettings.birthDate || '';
   if (weightInput) weightInput.value = appSettings.currentWeightKg === null ? '' : String(appSettings.currentWeightKg);
+  if (targetWeightInput) targetWeightInput.value = appSettings.targetWeightKg === null ? '' : String(appSettings.targetWeightKg);
   if (quickAddToggle) quickAddToggle.checked = appSettings.quickAddEnabled;
   if (feedAmountInput && !feedAmountInput.value) feedAmountInput.value = String(appSettings.defaultPortionG);
 
   applyQuickAddVisibility();
   renderFeedOpenStatus();
+  updateFoodRecommendationUi();
 }
 
 function applyQuickAddVisibility() {
@@ -1789,6 +1953,7 @@ function bindActions() {
   const settingsDefaultPortionInput = document.getElementById('settings-default-portion-g');
   const settingsBirthDateInput = document.getElementById('settings-birth-date');
   const settingsWeightInput = document.getElementById('settings-weight-kg');
+  const settingsTargetWeightInput = document.getElementById('settings-target-weight-kg');
   const settingsQuickAddToggle = document.getElementById('settings-enable-quick-add');
   const eventsList = document.getElementById('events');
   const editEventDialog = document.getElementById('edit-event-dialog');
@@ -1921,6 +2086,8 @@ function bindActions() {
     const nextBirthDate = String(settingsBirthDateInput?.value ?? '').trim();
     const nextWeightRaw = String(settingsWeightInput?.value ?? '').trim();
     const nextWeight = nextWeightRaw === '' ? null : Number(nextWeightRaw);
+    const nextTargetWeightRaw = String(settingsTargetWeightInput?.value ?? '').trim();
+    const nextTargetWeight = nextTargetWeightRaw === '' ? null : Number(nextTargetWeightRaw);
 
     if (!Number.isFinite(nextDailyTarget) || nextDailyTarget < 0 || !Number.isFinite(nextDefaultPortion) || nextDefaultPortion < 0) {
       if (settingsResultEl) settingsResultEl.textContent = t('settingsSaveFailed');
@@ -1941,12 +2108,18 @@ function bindActions() {
       return;
     }
 
+    if (nextTargetWeight !== null && (!Number.isFinite(nextTargetWeight) || nextTargetWeight <= 0)) {
+      if (settingsResultEl) settingsResultEl.textContent = t('settingsTargetWeightInvalid');
+      return;
+    }
+
     appSettings = {
       dailyTargetG: Math.floor(nextDailyTarget),
       defaultPortionG: Math.floor(nextDefaultPortion),
       quickAddEnabled: settingsQuickAddToggle?.checked !== false,
       birthDate: nextBirthDate,
       currentWeightKg: nextWeight === null ? null : Number(nextWeight.toFixed(1)),
+      targetWeightKg: nextTargetWeight === null ? null : Number(nextTargetWeight.toFixed(1)),
     };
 
     saveAppSettings();
