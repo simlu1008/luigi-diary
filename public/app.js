@@ -35,6 +35,7 @@ const FOOD_PROFILE_DEFINITIONS = {
     enabledInputId: 'settings-food-young-enabled',
     chipInputIds: ['settings-food-young-chip-1', 'settings-food-young-chip-2', 'settings-food-young-chip-3'],
     defaultQuickAddValues: [25, 30, 50],
+    defaultWeightFactorPercent: 100,
     labelKey: 'foodNameYoungPackMini',
   },
   platinumMenuPuppyChicken: {
@@ -42,6 +43,7 @@ const FOOD_PROFILE_DEFINITIONS = {
     enabledInputId: 'settings-food-platinum-enabled',
     chipInputIds: ['settings-food-platinum-chip-1', 'settings-food-platinum-chip-2', 'settings-food-platinum-chip-3'],
     defaultQuickAddValues: [150, 200, 250],
+    defaultWeightFactorPercent: 100,
     labelKey: 'foodNamePlatinumMenuPuppyChicken',
   },
 };
@@ -51,12 +53,22 @@ function createDefaultFoodProfiles() {
     youngPackMini: {
       enabled: true,
       quickAddValues: [...FOOD_PROFILE_DEFINITIONS.youngPackMini.defaultQuickAddValues],
+      weightFactorPercent: FOOD_PROFILE_DEFINITIONS.youngPackMini.defaultWeightFactorPercent,
     },
     platinumMenuPuppyChicken: {
       enabled: false,
       quickAddValues: [...FOOD_PROFILE_DEFINITIONS.platinumMenuPuppyChicken.defaultQuickAddValues],
+      weightFactorPercent: FOOD_PROFILE_DEFINITIONS.platinumMenuPuppyChicken.defaultWeightFactorPercent,
     },
   };
+}
+
+function sanitizeWeightFactor(value, fallbackValue) {
+  const parsed = Number(value);
+  if (Number.isFinite(parsed) && parsed > 0) {
+    return Math.round(parsed);
+  }
+  return fallbackValue;
 }
 
 function sanitizeQuickAddValues(values, fallbackValues) {
@@ -84,6 +96,7 @@ function normalizeFoodProfiles(rawProfiles) {
     normalized[key] = {
       enabled: rawProfile?.enabled === true,
       quickAddValues: sanitizeQuickAddValues(rawProfile?.quickAddValues, definition.defaultQuickAddValues),
+      weightFactorPercent: sanitizeWeightFactor(rawProfile?.weightFactorPercent, definition.defaultWeightFactorPercent),
     };
   }
 
@@ -302,25 +315,43 @@ function initializeFeedMixAmounts() {
   feedMixAmounts = nextMix;
 }
 
-function getPendingFeedMixTotal() {
+function getFoodWeightFactorPercent(foodKey) {
+  const factor = Number(appSettings.foodProfiles?.[foodKey]?.weightFactorPercent);
+  return Number.isFinite(factor) && factor > 0 ? factor : 100;
+}
+
+function getPendingFeedMixRawTotal() {
   return Object.values(feedMixAmounts).reduce((sum, value) => {
     const amount = Number(value);
     return Number.isFinite(amount) && amount > 0 ? sum + amount : sum;
   }, 0);
 }
 
+function getPendingFeedMixWeightedTotal() {
+  const weightedTotal = Object.entries(feedMixAmounts).reduce((sum, [foodKey, value]) => {
+    const amount = Number(value);
+    if (!Number.isFinite(amount) || amount <= 0) return sum;
+    const factor = getFoodWeightFactorPercent(foodKey);
+    return sum + (amount * factor) / 100;
+  }, 0);
+
+  return Math.round(weightedTotal);
+}
+
 function updateFeedPreviewStatus() {
   const previewEl = document.getElementById('feed-preview-status');
   if (!previewEl) return;
 
-  const pending = getPendingFeedMixTotal();
-  const projectedFed = todayFedGrams + pending;
+  const pendingRaw = getPendingFeedMixRawTotal();
+  const pendingWeighted = getPendingFeedMixWeightedTotal();
+  const projectedFed = todayFedGrams + pendingWeighted;
 
   if (appSettings.dailyTargetG > 0) {
     const projectedPercent = Math.min(999, Math.round((projectedFed / appSettings.dailyTargetG) * 100));
     const remaining = Math.max(0, appSettings.dailyTargetG - projectedFed);
     previewEl.textContent = t('feedPreviewWithTarget', {
-      pending,
+      pendingRaw,
+      pendingWeighted,
       projectedPercent,
       projectedFed,
       target: appSettings.dailyTargetG,
@@ -328,7 +359,8 @@ function updateFeedPreviewStatus() {
     });
   } else {
     previewEl.textContent = t('feedPreviewNoTarget', {
-      pending,
+      pendingRaw,
+      pendingWeighted,
       projectedFed,
     });
   }
@@ -364,6 +396,7 @@ function renderFeedFoodOptions() {
       const profile = appSettings.foodProfiles?.[foodKey];
       const quickAddValues = appSettings.quickAddEnabled ? (profile?.quickAddValues || []) : [];
       const currentAmount = Math.max(0, Math.floor(Number(feedMixAmounts?.[foodKey] || 0)));
+      const weightFactorPercent = getFoodWeightFactorPercent(foodKey);
       const chipsMarkup = quickAddValues
         .map((grams) => `<button type="button" class="chip-btn" data-food-key="${foodKey}" data-gram="${grams}">+${grams}g</button>`)
         .join('');
@@ -372,6 +405,7 @@ function renderFeedFoodOptions() {
         <div class="food-mix-row">
           <div class="food-mix-header">
             <span class="food-mix-name">${getFoodDisplayName(foodKey)}</span>
+            <span class="food-mix-factor">${t('feedWeightFactorBadge', { factor: weightFactorPercent })}</span>
           </div>
           <div class="feed-input-row">
             <label class="feed-amount-label" for="feed-amount-${foodKey}">${t('feedAmountLabel')}</label>
@@ -394,7 +428,9 @@ function buildFeedNoteForMix(rawNote) {
     .map(([foodKey, amount]) => {
       const grams = Math.max(0, Math.floor(Number(amount) || 0));
       if (grams <= 0) return null;
-      return `${grams}g ${getFoodDisplayName(foodKey)}`;
+      const factor = getFoodWeightFactorPercent(foodKey);
+      const weighted = Math.round((grams * factor) / 100);
+      return `${grams}g ${getFoodDisplayName(foodKey)} (${factor}%=${weighted}g)`;
     })
     .filter(Boolean)
     .join(' + ');
@@ -505,9 +541,10 @@ const TRANSLATIONS = {
     feedAmountLabel: 'Menge',
     feedFoodOptionsLabel: 'Futtersorten mischen',
     feedFoodOptionsEmpty: 'Aktiviere in den Einstellungen mindestens eine Futtersorte.',
-    feedPreviewWithTarget: 'Nach dieser Fütterung: {projectedPercent}% ({projectedFed}/{target} g), offen: {remaining} g.',
-    feedPreviewNoTarget: 'Nach dieser Fütterung: {projectedFed} g gesamt heute ({pending} g ausgewählt).',
+    feedPreviewWithTarget: 'Nach dieser Fütterung (gewichtet): {projectedPercent}% ({projectedFed}/{target} g), offen: {remaining} g · Rohmenge: {pendingRaw} g.',
+    feedPreviewNoTarget: 'Nach dieser Fütterung (gewichtet): {projectedFed} g gesamt heute · Rohmenge: {pendingRaw} g.',
     feedMixNoAmount: 'Bitte zuerst eine Futtermenge > 0 auswählen.',
+    feedWeightFactorBadge: 'Anrechnung: {factor}%',
     sleepNotePlaceholder: 'Schlaf-Notiz (optional)',
     buttonStartWalk: '🚶 Spaziergang starten',
     buttonEndWalk: '✅ Spaziergang beenden',
@@ -618,6 +655,7 @@ const TRANSLATIONS = {
     foodNamePlatinumMenuPuppyChicken: 'PLATINUM Menu Puppy Chicken',
     settingsFoodYoungEnabledLabel: 'YOUNG PACK MINI wird aktuell gefüttert',
     settingsFoodPlatinumEnabledLabel: 'PLATINUM Menu Puppy Chicken wird aktuell gefüttert',
+    settingsFoodWeightFactorLabel: 'Anrechnungsfaktor (%)',
     settingsFoodChip1Label: 'Quick Add 1 (g)',
     settingsFoodChip2Label: 'Quick Add 2 (g)',
     settingsFoodChip3Label: 'Quick Add 3 (g)',
@@ -628,6 +666,7 @@ const TRANSLATIONS = {
     settingsWeightInvalid: 'Bitte ein gültiges Gewicht eingeben (> 0).',
     settingsTargetWeightInvalid: 'Bitte ein gültiges Zielgewicht eingeben (> 0).',
     settingsFoodChipInvalid: 'Bitte für jede aktive Futtersorte drei gültige Quick-Add-Werte (> 0) eingeben.',
+    settingsFoodWeightFactorInvalid: 'Bitte pro aktiver Futtersorte einen gültigen Anrechnungsfaktor (> 0) eingeben.',
     foodSummaryPending: 'Menge offen',
     foodSummaryGrams: '{grams} g/Tag',
     foodMissingBirthDate: 'Bitte zuerst ein gültiges Geburtsdatum in den Einstellungen angeben.',
@@ -703,9 +742,10 @@ const TRANSLATIONS = {
     feedAmountLabel: 'Amount',
     feedFoodOptionsLabel: 'Mix food types',
     feedFoodOptionsEmpty: 'Enable at least one food in settings.',
-    feedPreviewWithTarget: 'After this feeding: {projectedPercent}% ({projectedFed}/{target} g), remaining: {remaining} g.',
-    feedPreviewNoTarget: 'After this feeding: {projectedFed} g total today ({pending} g selected).',
+    feedPreviewWithTarget: 'After this feeding (weighted): {projectedPercent}% ({projectedFed}/{target} g), remaining: {remaining} g · raw amount: {pendingRaw} g.',
+    feedPreviewNoTarget: 'After this feeding (weighted): {projectedFed} g total today · raw amount: {pendingRaw} g.',
     feedMixNoAmount: 'Please select a feed amount > 0 first.',
+    feedWeightFactorBadge: 'Factor: {factor}%',
     sleepNotePlaceholder: 'Sleep note (optional)',
     buttonStartWalk: '🚶 Start walk',
     buttonEndWalk: '✅ End walk',
@@ -816,6 +856,7 @@ const TRANSLATIONS = {
     foodNamePlatinumMenuPuppyChicken: 'PLATINUM Menu Puppy Chicken',
     settingsFoodYoungEnabledLabel: 'YOUNG PACK MINI is currently fed',
     settingsFoodPlatinumEnabledLabel: 'PLATINUM Menu Puppy Chicken is currently fed',
+    settingsFoodWeightFactorLabel: 'Weighting factor (%)',
     settingsFoodChip1Label: 'Quick add 1 (g)',
     settingsFoodChip2Label: 'Quick add 2 (g)',
     settingsFoodChip3Label: 'Quick add 3 (g)',
@@ -826,6 +867,7 @@ const TRANSLATIONS = {
     settingsWeightInvalid: 'Please enter a valid weight (> 0).',
     settingsTargetWeightInvalid: 'Please enter a valid target weight (> 0).',
     settingsFoodChipInvalid: 'Please enter three valid quick-add values (> 0) for each active food type.',
+    settingsFoodWeightFactorInvalid: 'Please enter a valid weighting factor (> 0) for each active food type.',
     foodSummaryPending: 'Amount pending',
     foodSummaryGrams: '{grams} g/day',
     foodMissingBirthDate: 'Please provide a valid birth date in settings first.',
@@ -1002,6 +1044,8 @@ function applyStaticTranslations() {
   setText('food-config-subtitle', t('foodConfigSubtitle'));
   setText('settings-food-young-enabled-label', t('settingsFoodYoungEnabledLabel'));
   setText('settings-food-platinum-enabled-label', t('settingsFoodPlatinumEnabledLabel'));
+  setText('settings-food-young-weight-factor-label', t('settingsFoodWeightFactorLabel'));
+  setText('settings-food-platinum-weight-factor-label', t('settingsFoodWeightFactorLabel'));
   setText('settings-food-young-chip-1-label', t('settingsFoodChip1Label'));
   setText('settings-food-young-chip-2-label', t('settingsFoodChip2Label'));
   setText('settings-food-young-chip-3-label', t('settingsFoodChip3Label'));
@@ -1099,10 +1143,12 @@ function applySettingsToForm() {
   const targetWeightInput = document.getElementById('settings-target-weight-kg');
   const quickAddToggle = document.getElementById('settings-enable-quick-add');
   const settingsFoodYoungEnabled = document.getElementById('settings-food-young-enabled');
+  const settingsFoodYoungWeightFactor = document.getElementById('settings-food-young-weight-factor');
   const settingsFoodYoungChip1 = document.getElementById('settings-food-young-chip-1');
   const settingsFoodYoungChip2 = document.getElementById('settings-food-young-chip-2');
   const settingsFoodYoungChip3 = document.getElementById('settings-food-young-chip-3');
   const settingsFoodPlatinumEnabled = document.getElementById('settings-food-platinum-enabled');
+  const settingsFoodPlatinumWeightFactor = document.getElementById('settings-food-platinum-weight-factor');
   const settingsFoodPlatinumChip1 = document.getElementById('settings-food-platinum-chip-1');
   const settingsFoodPlatinumChip2 = document.getElementById('settings-food-platinum-chip-2');
   const settingsFoodPlatinumChip3 = document.getElementById('settings-food-platinum-chip-3');
@@ -1117,10 +1163,12 @@ function applySettingsToForm() {
   if (targetWeightInput) targetWeightInput.value = appSettings.targetWeightKg === null ? '' : String(appSettings.targetWeightKg);
   if (quickAddToggle) quickAddToggle.checked = appSettings.quickAddEnabled;
   if (settingsFoodYoungEnabled) settingsFoodYoungEnabled.checked = youngProfile?.enabled === true;
+  if (settingsFoodYoungWeightFactor) settingsFoodYoungWeightFactor.value = String(youngProfile?.weightFactorPercent ?? 100);
   if (settingsFoodYoungChip1) settingsFoodYoungChip1.value = String(youngProfile?.quickAddValues?.[0] ?? 25);
   if (settingsFoodYoungChip2) settingsFoodYoungChip2.value = String(youngProfile?.quickAddValues?.[1] ?? 30);
   if (settingsFoodYoungChip3) settingsFoodYoungChip3.value = String(youngProfile?.quickAddValues?.[2] ?? 50);
   if (settingsFoodPlatinumEnabled) settingsFoodPlatinumEnabled.checked = platinumProfile?.enabled === true;
+  if (settingsFoodPlatinumWeightFactor) settingsFoodPlatinumWeightFactor.value = String(platinumProfile?.weightFactorPercent ?? 100);
   if (settingsFoodPlatinumChip1) settingsFoodPlatinumChip1.value = String(platinumProfile?.quickAddValues?.[0] ?? 150);
   if (settingsFoodPlatinumChip2) settingsFoodPlatinumChip2.value = String(platinumProfile?.quickAddValues?.[1] ?? 200);
   if (settingsFoodPlatinumChip3) settingsFoodPlatinumChip3.value = String(platinumProfile?.quickAddValues?.[2] ?? 250);
@@ -2268,10 +2316,12 @@ function bindActions() {
   const settingsTargetWeightInput = document.getElementById('settings-target-weight-kg');
   const settingsQuickAddToggle = document.getElementById('settings-enable-quick-add');
   const settingsFoodYoungEnabled = document.getElementById('settings-food-young-enabled');
+  const settingsFoodYoungWeightFactor = document.getElementById('settings-food-young-weight-factor');
   const settingsFoodYoungChip1 = document.getElementById('settings-food-young-chip-1');
   const settingsFoodYoungChip2 = document.getElementById('settings-food-young-chip-2');
   const settingsFoodYoungChip3 = document.getElementById('settings-food-young-chip-3');
   const settingsFoodPlatinumEnabled = document.getElementById('settings-food-platinum-enabled');
+  const settingsFoodPlatinumWeightFactor = document.getElementById('settings-food-platinum-weight-factor');
   const settingsFoodPlatinumChip1 = document.getElementById('settings-food-platinum-chip-1');
   const settingsFoodPlatinumChip2 = document.getElementById('settings-food-platinum-chip-2');
   const settingsFoodPlatinumChip3 = document.getElementById('settings-food-platinum-chip-3');
@@ -2425,6 +2475,8 @@ function bindActions() {
       Number(settingsFoodPlatinumChip2?.value ?? NaN),
       Number(settingsFoodPlatinumChip3?.value ?? NaN),
     ];
+    const nextYoungWeightFactor = Number(settingsFoodYoungWeightFactor?.value ?? NaN);
+    const nextPlatinumWeightFactor = Number(settingsFoodPlatinumWeightFactor?.value ?? NaN);
 
     if (!Number.isFinite(nextDailyTarget) || nextDailyTarget < 0 || !Number.isFinite(nextDefaultPortion) || nextDefaultPortion < 0) {
       if (settingsResultEl) settingsResultEl.textContent = t('settingsSaveFailed');
@@ -2456,16 +2508,28 @@ function bindActions() {
       return;
     }
 
+    const isValidFactor = (value) => Number.isFinite(value) && value > 0;
+    if ((settingsFoodYoungEnabled?.checked && !isValidFactor(nextYoungWeightFactor)) || (settingsFoodPlatinumEnabled?.checked && !isValidFactor(nextPlatinumWeightFactor))) {
+      if (settingsResultEl) settingsResultEl.textContent = t('settingsFoodWeightFactorInvalid');
+      return;
+    }
+
     const fallbackProfiles = appSettings.foodProfiles || createDefaultFoodProfiles();
     const foodProfiles = {
       youngPackMini: {
         enabled: settingsFoodYoungEnabled?.checked === true,
+        weightFactorPercent: isValidFactor(nextYoungWeightFactor)
+          ? Math.round(nextYoungWeightFactor)
+          : (fallbackProfiles.youngPackMini.weightFactorPercent ?? 100),
         quickAddValues: isValidChipSet(nextYoungValues)
           ? nextYoungValues.map((value) => Math.floor(value))
           : [...fallbackProfiles.youngPackMini.quickAddValues],
       },
       platinumMenuPuppyChicken: {
         enabled: settingsFoodPlatinumEnabled?.checked === true,
+        weightFactorPercent: isValidFactor(nextPlatinumWeightFactor)
+          ? Math.round(nextPlatinumWeightFactor)
+          : (fallbackProfiles.platinumMenuPuppyChicken.weightFactorPercent ?? 100),
         quickAddValues: isValidChipSet(nextPlatinumValues)
           ? nextPlatinumValues.map((value) => Math.floor(value))
           : [...fallbackProfiles.platinumMenuPuppyChicken.quickAddValues],
@@ -2541,7 +2605,7 @@ function bindActions() {
 
   feedButton.addEventListener('click', async () => {
     const userNote = document.getElementById('feed-note').value.trim();
-    const normalizedAmountG = getPendingFeedMixTotal();
+    const normalizedAmountG = getPendingFeedMixWeightedTotal();
     if (!Number.isFinite(normalizedAmountG) || normalizedAmountG <= 0) {
       alert(t('feedMixNoAmount'));
       return;
