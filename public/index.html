@@ -77,6 +77,17 @@
         </div>
 
         <div class="feed-block">
+          <div class="feed-candy-config">
+            <label class="feed-candy-label" for="feed-candy-share-percent">
+              <span id="feed-candy-share-label">Candy-Anteil am Tagesbedarf</span>
+            </label>
+            <div class="feed-candy-input-row">
+              <input id="feed-candy-share-percent" type="number" min="0" max="100" step="1" inputmode="numeric" value="0" />
+              <span class="feed-unit">%</span>
+            </div>
+            <p id="feed-candy-share-hint" class="feed-progress-text">Candies: 0% · normales Futter: 100%</p>
+          </div>
+
           <div>
             <p id="feed-food-options-label" class="timeline-subtitle">Futtersorten mischen</p>
             <div id="feed-food-options" class="food-mix-list"></div>

@@ -408,6 +408,35 @@ h1 {
   padding: 10px;
 }
 
+.feed-candy-config {
+  display: grid;
+  gap: 6px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 8px;
+  background: #f9fafb;
+}
+
+.feed-candy-label {
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.feed-candy-input-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.feed-candy-input-row input {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-size: 15px;
+}
+
 .feed-preview-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

@@ -71,6 +71,12 @@ function sanitizeWeightFactor(value, fallbackValue) {
   return fallbackValue;
 }
 
+function sanitizeCandySharePercent(value, fallbackValue = 0) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return fallbackValue;
+  return Math.max(0, Math.min(100, Math.round(parsed)));
+}
+
 function sanitizeQuickAddValues(values, fallbackValues) {
   const result = [];
   const source = Array.isArray(values) ? values : [];
@@ -358,8 +364,16 @@ function getFoodReferenceTarget() {
 function getEffectiveDailyTargetGrams() {
   const referenceTarget = getFoodReferenceTarget();
   if (referenceTarget?.gramsPerDay) return referenceTarget.gramsPerDay;
-  const fallback = Number(appSettings.dailyTargetG);
+  const fallback = Number(appSettings.dailyTargetG || 0);
   return Number.isFinite(fallback) && fallback > 0 ? fallback : null;
+}
+
+function getCandySharePercent() {
+  return sanitizeCandySharePercent(appSettings.candySharePercent, 0);
+}
+
+function getFoodTargetFraction() {
+  return Math.max(0, 1 - getCandySharePercent() / 100);
 }
 
 function getPendingFeedMixEquivalentGrams() {
@@ -369,10 +383,10 @@ function getPendingFeedMixEquivalentGrams() {
   return Math.round(progressShare * effectiveTarget);
 }
 
-function getRemainingGramsForFood(progressShare, foodKey) {
+function getRemainingGramsForFood(progressShare, requiredShare, foodKey) {
   const recommendationGrams = getFoodRecommendedDailyGrams(foodKey);
   if (!recommendationGrams) return null;
-  const remainingShare = Math.max(0, 1 - progressShare);
+  const remainingShare = Math.max(0, requiredShare - progressShare);
   return Math.round(remainingShare * recommendationGrams);
 }
 
@@ -390,30 +404,41 @@ function updateFeedPreviewStatus() {
   const previewRawEl = document.getElementById('feed-preview-raw');
   const previewRemainingYoungEl = document.getElementById('feed-preview-remaining-young');
   const previewRemainingPlatinumEl = document.getElementById('feed-preview-remaining-platinum');
+  const candyHintEl = document.getElementById('feed-candy-share-hint');
   if (!previewEl) return;
 
   const pendingRaw = getPendingFeedMixRawTotal();
   const pendingEquivalent = getPendingFeedMixEquivalentGrams();
-  const effectiveTarget = getEffectiveDailyTargetGrams();
-  const projectedFed = todayFedGrams + pendingEquivalent;
-  const projectedShare = getPendingFeedMixProgressShare() + (effectiveTarget ? todayFedGrams / effectiveTarget : 0);
-  const remainingYoung = getRemainingGramsForFood(projectedShare, 'youngPackMini');
-  const remainingPlatinum = getRemainingGramsForFood(projectedShare, 'platinumMenuPuppyChicken');
+  const fullTarget = getEffectiveDailyTargetGrams();
+  const requiredFoodShare = getFoodTargetFraction();
+  const foodTarget = fullTarget ? Math.round(fullTarget * requiredFoodShare) : null;
+  const pendingShare = getPendingFeedMixProgressShare();
+  const currentShare = fullTarget ? todayFedGrams / fullTarget : 0;
+  const projectedShare = currentShare + pendingShare;
+  const projectedFed = fullTarget ? Math.round(projectedShare * fullTarget) : (todayFedGrams + pendingEquivalent);
+  const remainingYoung = getRemainingGramsForFood(projectedShare, requiredFoodShare, 'youngPackMini');
+  const remainingPlatinum = getRemainingGramsForFood(projectedShare, requiredFoodShare, 'platinumMenuPuppyChicken');
   const referenceFood = getFeedReferenceLabel();
+  const candyPercent = getCandySharePercent();
+  const foodPercent = Math.max(0, 100 - candyPercent);
+
+  if (candyHintEl) {
+    candyHintEl.textContent = t('feedCandyShareHint', { candyPercent, foodPercent });
+  }
 
   if (previewRawEl) previewRawEl.textContent = `${pendingRaw} g`;
   if (previewRemainingYoungEl) previewRemainingYoungEl.textContent = remainingYoung === null ? '-' : `${remainingYoung} g`;
   if (previewRemainingPlatinumEl) previewRemainingPlatinumEl.textContent = remainingPlatinum === null ? '-' : `${remainingPlatinum} g`;
 
-  if (effectiveTarget) {
-    const projectedPercent = Math.min(999, Math.round((projectedFed / effectiveTarget) * 100));
-    const remaining = Math.max(0, effectiveTarget - projectedFed);
+  if (foodTarget && foodTarget > 0) {
+    const projectedPercent = Math.min(999, Math.round((projectedFed / foodTarget) * 100));
+    const remaining = Math.max(0, foodTarget - projectedFed);
     previewEl.textContent = t('feedPreviewWithTarget', {
       pendingRaw,
       pendingEquivalent,
       projectedPercent,
       projectedFed,
-      target: effectiveTarget,
+      target: foodTarget,
       remaining,
       remainingYoung: remainingYoung ?? '-',
       remainingPlatinum: remainingPlatinum ?? '-',
@@ -542,6 +567,7 @@ const DEFAULT_SETTINGS = {
   birthDate: '',
   currentWeightKg: null,
   targetWeightKg: null,
+  candySharePercent: 0,
   foodProfiles: createDefaultFoodProfiles(),
 };
 let currentLanguage = 'en';
@@ -612,6 +638,8 @@ const TRANSLATIONS = {
     feedAmountLabel: 'Menge',
     feedFoodOptionsLabel: 'Futtersorten mischen',
     feedFoodOptionsEmpty: 'Aktiviere in den Einstellungen mindestens eine Futtersorte.',
+    feedCandyShareLabel: 'Candy-Anteil am Tagesbedarf',
+    feedCandyShareHint: 'Candies: {candyPercent}% · normales Futter: {foodPercent}%',
     feedPreviewWithTarget: 'Nach dieser Fütterung: {projectedPercent}% ({projectedFed}/{target} g, Referenz: {referenceFood}).',
     feedPreviewNoTarget: 'Nach dieser Fütterung: {projectedFed} g gesamt heute.',
     feedMixNoAmount: 'Bitte zuerst eine Futtermenge > 0 auswählen.',
@@ -821,6 +849,8 @@ const TRANSLATIONS = {
     feedAmountLabel: 'Amount',
     feedFoodOptionsLabel: 'Mix food types',
     feedFoodOptionsEmpty: 'Enable at least one food in settings.',
+    feedCandyShareLabel: 'Candy share of daily need',
+    feedCandyShareHint: 'Candies: {candyPercent}% · regular food: {foodPercent}%',
     feedPreviewWithTarget: 'After this feeding: {projectedPercent}% ({projectedFed}/{target} g, reference: {referenceFood}).',
     feedPreviewNoTarget: 'After this feeding: {projectedFed} g total today.',
     feedMixNoAmount: 'Please select a feed amount > 0 first.',
@@ -1070,6 +1100,7 @@ function applyStaticTranslations() {
   setText('feed-amount-label', t('feedAmountLabel'));
   setText('feed-food-options-label', t('feedFoodOptionsLabel'));
   setText('feed-food-options-empty', t('feedFoodOptionsEmpty'));
+  setText('feed-candy-share-label', t('feedCandyShareLabel'));
   setText('feed-preview-progress-label', t('feedPreviewProgressLabel'));
   setText('feed-preview-reference-label', t('feedPreviewReferenceLabel'));
   setText('feed-preview-remaining-total-label', t('feedPreviewRemainingTotalLabel'));
@@ -1217,6 +1248,7 @@ function loadAppSettings() {
       birthDate,
       currentWeightKg,
       targetWeightKg,
+      candySharePercent: sanitizeCandySharePercent(parsed?.candySharePercent, 0),
       foodProfiles,
     };
   } catch {
@@ -1245,6 +1277,7 @@ function applySettingsToForm() {
   const settingsFoodPlatinumChip1 = document.getElementById('settings-food-platinum-chip-1');
   const settingsFoodPlatinumChip2 = document.getElementById('settings-food-platinum-chip-2');
   const settingsFoodPlatinumChip3 = document.getElementById('settings-food-platinum-chip-3');
+  const feedCandyShareInput = document.getElementById('feed-candy-share-percent');
 
   const youngProfile = appSettings.foodProfiles?.youngPackMini;
   const platinumProfile = appSettings.foodProfiles?.platinumMenuPuppyChicken;
@@ -1265,6 +1298,7 @@ function applySettingsToForm() {
   if (settingsFoodPlatinumChip1) settingsFoodPlatinumChip1.value = String(platinumProfile?.quickAddValues?.[0] ?? 150);
   if (settingsFoodPlatinumChip2) settingsFoodPlatinumChip2.value = String(platinumProfile?.quickAddValues?.[1] ?? 200);
   if (settingsFoodPlatinumChip3) settingsFoodPlatinumChip3.value = String(platinumProfile?.quickAddValues?.[2] ?? 250);
+  if (feedCandyShareInput) feedCandyShareInput.value = String(getCandySharePercent());
   initializeFeedMixAmounts();
 
   applyQuickAddVisibility();
@@ -1425,7 +1459,8 @@ function renderFeedOpenStatus() {
   const todayFeedProgressTextEl = document.getElementById('today-feed-progress-text');
   if (!feedOpenStatusEl && !todayFeedOpenStatusEl) return;
 
-  const target = Math.max(0, Number(getEffectiveDailyTargetGrams() || 0));
+  const fullTarget = Math.max(0, Number(getEffectiveDailyTargetGrams() || 0));
+  const target = Math.round(fullTarget * getFoodTargetFraction());
   const fed = Math.max(0, todayFedGrams || 0);
   const statusTextNoTarget = t('statusFeedNoTarget', { fed });
   if (target <= 0) {
@@ -2406,6 +2441,7 @@ function bindActions() {
   const pupuCheckbox = document.getElementById('pupu');
   const feedButton = document.getElementById('feed');
   const feedMixList = document.getElementById('feed-food-options');
+  const feedCandyShareInput = document.getElementById('feed-candy-share-percent');
   const startSleepButton = document.getElementById('start-sleep');
   const endSleepButton = document.getElementById('end-sleep');
   const startAloneButton = document.getElementById('start-alone');
@@ -2470,6 +2506,14 @@ function bindActions() {
 
   tabSettingsButton?.addEventListener('click', () => {
     setActiveTab('settings');
+  });
+
+  feedCandyShareInput?.addEventListener('input', () => {
+    const nextPercent = sanitizeCandySharePercent(feedCandyShareInput.value, getCandySharePercent());
+    appSettings.candySharePercent = nextPercent;
+    feedCandyShareInput.value = String(nextPercent);
+    saveAppSettings();
+    renderFeedOpenStatus();
   });
 
   feedMixList?.addEventListener('input', (event) => {
@@ -2661,6 +2705,7 @@ function bindActions() {
       birthDate: nextBirthDate,
       currentWeightKg: nextWeight === null ? null : Number(nextWeight.toFixed(1)),
       targetWeightKg: nextTargetWeight === null ? null : Number(nextTargetWeight.toFixed(1)),
+      candySharePercent: getCandySharePercent(),
       foodProfiles,
     };
 
