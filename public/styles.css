@@ -44,6 +44,10 @@ h1 {
   font-size: 13px;
 }
 
+.status-card .feed-progress-wrap {
+  margin-top: 6px;
+}
+
 .feed-progress-wrap {
   margin-top: 8px;
   display: grid;
@@ -404,6 +408,31 @@ h1 {
   padding: 10px;
 }
 
+.feed-preview-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.feed-preview-item {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 8px;
+  display: grid;
+  gap: 4px;
+  background: #f9fafb;
+}
+
+.feed-preview-label {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.feed-preview-item strong {
+  font-size: 15px;
+  color: var(--text);
+}
+
 .feed-input-row {
   display: grid;
   gap: 6px;
@@ -508,6 +537,10 @@ h1 {
 
 @media (max-width: 640px) {
   .food-chip-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .feed-preview-grid {
     grid-template-columns: 1fr;
   }
 }

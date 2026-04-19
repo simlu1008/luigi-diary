@@ -384,6 +384,12 @@ function getFeedReferenceLabel() {
 
 function updateFeedPreviewStatus() {
   const previewEl = document.getElementById('feed-preview-status');
+  const previewPercentEl = document.getElementById('feed-preview-percent');
+  const previewReferenceEl = document.getElementById('feed-preview-reference');
+  const previewRemainingTotalEl = document.getElementById('feed-preview-remaining-total');
+  const previewRawEl = document.getElementById('feed-preview-raw');
+  const previewRemainingYoungEl = document.getElementById('feed-preview-remaining-young');
+  const previewRemainingPlatinumEl = document.getElementById('feed-preview-remaining-platinum');
   if (!previewEl) return;
 
   const pendingRaw = getPendingFeedMixRawTotal();
@@ -393,6 +399,11 @@ function updateFeedPreviewStatus() {
   const projectedShare = getPendingFeedMixProgressShare() + (effectiveTarget ? todayFedGrams / effectiveTarget : 0);
   const remainingYoung = getRemainingGramsForFood(projectedShare, 'youngPackMini');
   const remainingPlatinum = getRemainingGramsForFood(projectedShare, 'platinumMenuPuppyChicken');
+  const referenceFood = getFeedReferenceLabel();
+
+  if (previewRawEl) previewRawEl.textContent = `${pendingRaw} g`;
+  if (previewRemainingYoungEl) previewRemainingYoungEl.textContent = remainingYoung === null ? '-' : `${remainingYoung} g`;
+  if (previewRemainingPlatinumEl) previewRemainingPlatinumEl.textContent = remainingPlatinum === null ? '-' : `${remainingPlatinum} g`;
 
   if (effectiveTarget) {
     const projectedPercent = Math.min(999, Math.round((projectedFed / effectiveTarget) * 100));
@@ -406,14 +417,20 @@ function updateFeedPreviewStatus() {
       remaining,
       remainingYoung: remainingYoung ?? '-',
       remainingPlatinum: remainingPlatinum ?? '-',
-      referenceFood: getFeedReferenceLabel(),
+      referenceFood,
     });
+    if (previewPercentEl) previewPercentEl.textContent = `${projectedPercent}%`;
+    if (previewReferenceEl) previewReferenceEl.textContent = referenceFood || '-';
+    if (previewRemainingTotalEl) previewRemainingTotalEl.textContent = `${remaining} g`;
   } else {
     previewEl.textContent = t('feedPreviewNoTarget', {
       pendingRaw,
       pendingEquivalent,
       projectedFed,
     });
+    if (previewPercentEl) previewPercentEl.textContent = '-';
+    if (previewReferenceEl) previewReferenceEl.textContent = '-';
+    if (previewRemainingTotalEl) previewRemainingTotalEl.textContent = '-';
   }
 }
 
@@ -595,11 +612,17 @@ const TRANSLATIONS = {
     feedAmountLabel: 'Menge',
     feedFoodOptionsLabel: 'Futtersorten mischen',
     feedFoodOptionsEmpty: 'Aktiviere in den Einstellungen mindestens eine Futtersorte.',
-    feedPreviewWithTarget: 'Nach dieser Fütterung: {projectedPercent}% ({projectedFed}/{target} g, Referenz: {referenceFood}), offen: {remaining} g · Rohmenge: {pendingRaw} g · Rest: Vet {remainingYoung} g / Platinum {remainingPlatinum} g.',
-    feedPreviewNoTarget: 'Nach dieser Fütterung: {projectedFed} g gesamt heute · Rohmenge: {pendingRaw} g.',
+    feedPreviewWithTarget: 'Nach dieser Fütterung: {projectedPercent}% ({projectedFed}/{target} g, Referenz: {referenceFood}).',
+    feedPreviewNoTarget: 'Nach dieser Fütterung: {projectedFed} g gesamt heute.',
     feedMixNoAmount: 'Bitte zuerst eine Futtermenge > 0 auswählen.',
     feedRecommendedBadge: 'Empfehlung: {grams} g/Tag',
     feedRecommendedUnknown: 'Empfehlung fehlt',
+    feedPreviewProgressLabel: 'Fortschritt (nach Eingabe)',
+    feedPreviewReferenceLabel: 'Referenzfutter',
+    feedPreviewRemainingTotalLabel: 'Noch offen gesamt',
+    feedPreviewRawLabel: 'Rohmenge (diese Eingabe)',
+    feedPreviewRemainingYoungLabel: 'Rest Vet-Concept',
+    feedPreviewRemainingPlatinumLabel: 'Rest Platinum',
     feedWeightFactorBadge: 'Anrechnung: {factor}%',
     sleepNotePlaceholder: 'Schlaf-Notiz (optional)',
     buttonStartWalk: '🚶 Spaziergang starten',
@@ -798,11 +821,17 @@ const TRANSLATIONS = {
     feedAmountLabel: 'Amount',
     feedFoodOptionsLabel: 'Mix food types',
     feedFoodOptionsEmpty: 'Enable at least one food in settings.',
-    feedPreviewWithTarget: 'After this feeding: {projectedPercent}% ({projectedFed}/{target} g, reference: {referenceFood}), remaining: {remaining} g · raw amount: {pendingRaw} g · remaining: Vet {remainingYoung} g / Platinum {remainingPlatinum} g.',
-    feedPreviewNoTarget: 'After this feeding: {projectedFed} g total today · raw amount: {pendingRaw} g.',
+    feedPreviewWithTarget: 'After this feeding: {projectedPercent}% ({projectedFed}/{target} g, reference: {referenceFood}).',
+    feedPreviewNoTarget: 'After this feeding: {projectedFed} g total today.',
     feedMixNoAmount: 'Please select a feed amount > 0 first.',
     feedRecommendedBadge: 'Recommended: {grams} g/day',
     feedRecommendedUnknown: 'Recommendation missing',
+    feedPreviewProgressLabel: 'Progress (after entry)',
+    feedPreviewReferenceLabel: 'Reference food',
+    feedPreviewRemainingTotalLabel: 'Total remaining',
+    feedPreviewRawLabel: 'Raw amount (this entry)',
+    feedPreviewRemainingYoungLabel: 'Remaining Vet-Concept',
+    feedPreviewRemainingPlatinumLabel: 'Remaining Platinum',
     feedWeightFactorBadge: 'Factor: {factor}%',
     sleepNotePlaceholder: 'Sleep note (optional)',
     buttonStartWalk: '🚶 Start walk',
@@ -1041,6 +1070,12 @@ function applyStaticTranslations() {
   setText('feed-amount-label', t('feedAmountLabel'));
   setText('feed-food-options-label', t('feedFoodOptionsLabel'));
   setText('feed-food-options-empty', t('feedFoodOptionsEmpty'));
+  setText('feed-preview-progress-label', t('feedPreviewProgressLabel'));
+  setText('feed-preview-reference-label', t('feedPreviewReferenceLabel'));
+  setText('feed-preview-remaining-total-label', t('feedPreviewRemainingTotalLabel'));
+  setText('feed-preview-raw-label', t('feedPreviewRawLabel'));
+  setText('feed-preview-remaining-young-label', t('feedPreviewRemainingYoungLabel'));
+  setText('feed-preview-remaining-platinum-label', t('feedPreviewRemainingPlatinumLabel'));
   setText('start-walk', t('buttonStartWalk'));
   setText('end-walk', t('buttonEndWalk'));
   setText('feed', t('buttonFeed'));
@@ -1384,26 +1419,37 @@ function renderFeedOpenStatus() {
   const feedProgressWrapEl = document.getElementById('feed-progress-wrap');
   const feedProgressBarEl = document.getElementById('feed-progress-bar');
   const feedProgressTextEl = document.getElementById('feed-progress-text');
-  if (!feedOpenStatusEl) return;
+  const todayFeedOpenStatusEl = document.getElementById('today-feed-open-status');
+  const todayFeedProgressWrapEl = document.getElementById('today-feed-progress-wrap');
+  const todayFeedProgressBarEl = document.getElementById('today-feed-progress-bar');
+  const todayFeedProgressTextEl = document.getElementById('today-feed-progress-text');
+  if (!feedOpenStatusEl && !todayFeedOpenStatusEl) return;
 
   const target = Math.max(0, Number(getEffectiveDailyTargetGrams() || 0));
   const fed = Math.max(0, todayFedGrams || 0);
+  const statusTextNoTarget = t('statusFeedNoTarget', { fed });
   if (target <= 0) {
-    feedOpenStatusEl.textContent = t('statusFeedNoTarget', { fed });
+    if (feedOpenStatusEl) feedOpenStatusEl.textContent = statusTextNoTarget;
+    if (todayFeedOpenStatusEl) todayFeedOpenStatusEl.textContent = statusTextNoTarget;
     if (feedProgressWrapEl) {
       feedProgressWrapEl.style.display = 'none';
+    }
+    if (todayFeedProgressWrapEl) {
+      todayFeedProgressWrapEl.style.display = 'none';
     }
     updateFeedPreviewStatus();
     return;
   }
 
   const remaining = Math.max(0, target - fed);
-  feedOpenStatusEl.textContent = t('statusFeedOpen', {
+  const statusTextOpen = t('statusFeedOpen', {
     remaining,
     fed,
     target,
     referenceFood: getFeedReferenceLabel(),
   });
+  if (feedOpenStatusEl) feedOpenStatusEl.textContent = statusTextOpen;
+  if (todayFeedOpenStatusEl) todayFeedOpenStatusEl.textContent = statusTextOpen;
 
   const progressPercent = Math.max(0, Math.min(100, Math.round((fed / target) * 100)));
   if (feedProgressWrapEl) {
@@ -1414,6 +1460,15 @@ function renderFeedOpenStatus() {
   }
   if (feedProgressTextEl) {
     feedProgressTextEl.textContent = `${progressPercent}%`;
+  }
+  if (todayFeedProgressWrapEl) {
+    todayFeedProgressWrapEl.style.display = 'grid';
+  }
+  if (todayFeedProgressBarEl) {
+    todayFeedProgressBarEl.style.width = `${progressPercent}%`;
+  }
+  if (todayFeedProgressTextEl) {
+    todayFeedProgressTextEl.textContent = `${progressPercent}%`;
   }
   updateFeedPreviewStatus();
 }

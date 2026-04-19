@@ -35,6 +35,13 @@
         <p id="alone-status">Lade Alone-Status…</p>
         <p id="last-pipi-status" class="status-mini-line">Letztes Pipi: noch kein Eintrag</p>
         <p id="last-pupu-status" class="status-mini-line">Letztes Pupu: noch kein Eintrag</p>
+        <p id="today-feed-open-status" class="status-mini-line">Futter offen heute: 0 g</p>
+        <div id="today-feed-progress-wrap" class="feed-progress-wrap" aria-hidden="true">
+          <div class="feed-progress-track">
+            <div id="today-feed-progress-bar" class="feed-progress-bar"></div>
+          </div>
+          <p id="today-feed-progress-text" class="feed-progress-text">0%</p>
+        </div>
       </section>
 
       <section class="card actions" data-tab="today">
@@ -76,6 +83,32 @@
             <p id="feed-food-options-empty" class="timeline-subtitle" hidden>Aktiviere in den Einstellungen mindestens eine Futtersorte.</p>
           </div>
           <p id="feed-preview-status" class="feed-progress-text"></p>
+          <div class="feed-preview-grid" id="feed-preview-grid">
+            <div class="feed-preview-item">
+              <span id="feed-preview-progress-label" class="feed-preview-label">Fortschritt</span>
+              <strong id="feed-preview-percent">0%</strong>
+            </div>
+            <div class="feed-preview-item">
+              <span id="feed-preview-reference-label" class="feed-preview-label">Referenzfutter</span>
+              <strong id="feed-preview-reference">-</strong>
+            </div>
+            <div class="feed-preview-item">
+              <span id="feed-preview-remaining-total-label" class="feed-preview-label">Noch offen gesamt</span>
+              <strong id="feed-preview-remaining-total">0 g</strong>
+            </div>
+            <div class="feed-preview-item">
+              <span id="feed-preview-raw-label" class="feed-preview-label">Rohmenge (diese Eingabe)</span>
+              <strong id="feed-preview-raw">0 g</strong>
+            </div>
+            <div class="feed-preview-item">
+              <span id="feed-preview-remaining-young-label" class="feed-preview-label">Rest Vet-Concept</span>
+              <strong id="feed-preview-remaining-young">0 g</strong>
+            </div>
+            <div class="feed-preview-item">
+              <span id="feed-preview-remaining-platinum-label" class="feed-preview-label">Rest Platinum</span>
+              <strong id="feed-preview-remaining-platinum">0 g</strong>
+            </div>
+          </div>
           <input type="text" id="feed-note" placeholder="Füttern-Notiz (optional)" />
           <button id="feed" class="btn btn-success">🍽️ Gefüttert</button>
         </div>
