@@ -406,13 +406,13 @@ function updateFeedPreviewStatus() {
   const previewEl = document.getElementById('feed-preview-status');
   const previewPercentEl = document.getElementById('feed-preview-percent');
   const previewReferenceEl = document.getElementById('feed-preview-reference');
-  const previewRemainingTotalEl = document.getElementById('feed-preview-remaining-total');
   const previewRawEl = document.getElementById('feed-preview-raw');
   const previewRemainingYoungEl = document.getElementById('feed-preview-remaining-young');
   const previewRemainingPlatinumEl = document.getElementById('feed-preview-remaining-platinum');
   const candyHintEl = document.getElementById('feed-candy-share-hint');
   const previewFedBarEl = document.getElementById('feed-preview-fed-bar');
   const previewPendingBarEl = document.getElementById('feed-preview-pending-bar');
+  const previewOverBarEl = document.getElementById('feed-preview-over-bar');
   if (!previewEl) return;
 
   const pendingRaw = getPendingFeedMixRawTotal();
@@ -455,7 +455,7 @@ function updateFeedPreviewStatus() {
     });
     if (previewPercentEl) previewPercentEl.textContent = `${projectedPercent}%`;
     if (previewReferenceEl) previewReferenceEl.textContent = referenceFood || '-';
-    if (previewRemainingTotalEl) previewRemainingTotalEl.textContent = `${remaining} g`;
+    // removed previewRemainingTotalEl
 
     const fedWidth = Math.max(0, Math.min(100, currentPercent));
     const projectedWidth = Math.max(0, Math.min(100, projectedPercent));
@@ -467,6 +467,14 @@ function updateFeedPreviewStatus() {
       previewPendingBarEl.style.left = `${fedWidth}%`;
       previewPendingBarEl.style.width = `${pendingWidth}%`;
     }
+    // Show red marker if projected > 100%
+    if (previewOverBarEl) {
+      if (projectedPercent > 100) {
+        previewOverBarEl.style.display = 'block';
+      } else {
+        previewOverBarEl.style.display = 'none';
+      }
+    }
   } else {
     previewEl.textContent = t('feedPreviewNoTarget', {
       pendingRaw,
@@ -475,12 +483,13 @@ function updateFeedPreviewStatus() {
     });
     if (previewPercentEl) previewPercentEl.textContent = '-';
     if (previewReferenceEl) previewReferenceEl.textContent = '-';
-    if (previewRemainingTotalEl) previewRemainingTotalEl.textContent = '-';
+    // removed previewRemainingTotalEl
     if (previewFedBarEl) previewFedBarEl.style.width = '0%';
     if (previewPendingBarEl) {
       previewPendingBarEl.style.left = '0%';
       previewPendingBarEl.style.width = '0%';
     }
+    if (previewOverBarEl) previewOverBarEl.style.display = 'none';
   }
 }
 
@@ -1132,7 +1141,7 @@ function applyStaticTranslations() {
   setText('feed-candy-share-label', t('feedCandyShareLabel'));
   setText('feed-preview-progress-label', t('feedPreviewProgressLabel'));
   setText('feed-preview-reference-label', t('feedPreviewReferenceLabel'));
-  setText('feed-preview-remaining-total-label', t('feedPreviewRemainingTotalLabel'));
+  // removed feed-preview-remaining-total-label translation binding
   setText('feed-preview-raw-label', t('feedPreviewRawLabel'));
   setText('feed-preview-remaining-young-label', t('feedPreviewRemainingYoungLabel'));
   setText('feed-preview-remaining-platinum-label', t('feedPreviewRemainingPlatinumLabel'));
