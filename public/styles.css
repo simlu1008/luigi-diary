@@ -443,6 +443,75 @@ h1 {
   gap: 8px;
 }
 
+.feed-preview-bar-wrap {
+  display: grid;
+  gap: 6px;
+}
+
+.feed-preview-bar-track {
+  position: relative;
+  width: 100%;
+  height: 10px;
+  border-radius: 999px;
+  background: #e5e7eb;
+  overflow: hidden;
+}
+
+.feed-preview-fed-bar {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 0;
+  background: #2563eb;
+}
+
+.feed-preview-pending-bar {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 0;
+  background: repeating-linear-gradient(
+    135deg,
+    rgba(37, 99, 235, 0.75) 0,
+    rgba(37, 99, 235, 0.75) 6px,
+    rgba(37, 99, 235, 0.25) 6px,
+    rgba(37, 99, 235, 0.25) 12px
+  );
+}
+
+.feed-preview-bar-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.feed-preview-dot {
+  display: inline-block;
+  width: 12px;
+  height: 6px;
+  border-radius: 999px;
+  vertical-align: middle;
+  margin-right: 4px;
+}
+
+.feed-preview-dot-solid {
+  background: #2563eb;
+}
+
+.feed-preview-dot-dashed {
+  background: repeating-linear-gradient(
+    135deg,
+    rgba(37, 99, 235, 0.75) 0,
+    rgba(37, 99, 235, 0.75) 4px,
+    rgba(37, 99, 235, 0.2) 4px,
+    rgba(37, 99, 235, 0.2) 8px
+  );
+}
+
 .feed-preview-item {
   border: 1px solid var(--border);
   border-radius: 10px;

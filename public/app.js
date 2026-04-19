@@ -334,6 +334,12 @@ function getFoodRecommendedDailyGrams(foodKey) {
   return Number.isFinite(grams) && grams > 0 ? grams : null;
 }
 
+function getAdjustedFoodRecommendedDailyGrams(foodKey) {
+  const recommendationGrams = getFoodRecommendedDailyGrams(foodKey);
+  if (!recommendationGrams) return null;
+  return Math.round(recommendationGrams * getFoodTargetFraction());
+}
+
 function getPendingFeedMixRawTotal() {
   return Object.values(feedMixAmounts).reduce((sum, value) => {
     const amount = Number(value);
@@ -405,6 +411,8 @@ function updateFeedPreviewStatus() {
   const previewRemainingYoungEl = document.getElementById('feed-preview-remaining-young');
   const previewRemainingPlatinumEl = document.getElementById('feed-preview-remaining-platinum');
   const candyHintEl = document.getElementById('feed-candy-share-hint');
+  const previewFedBarEl = document.getElementById('feed-preview-fed-bar');
+  const previewPendingBarEl = document.getElementById('feed-preview-pending-bar');
   if (!previewEl) return;
 
   const pendingRaw = getPendingFeedMixRawTotal();
@@ -432,6 +440,7 @@ function updateFeedPreviewStatus() {
 
   if (foodTarget && foodTarget > 0) {
     const projectedPercent = Math.min(999, Math.round((projectedFed / foodTarget) * 100));
+    const currentPercent = Math.min(999, Math.round((todayFedGrams / foodTarget) * 100));
     const remaining = Math.max(0, foodTarget - projectedFed);
     previewEl.textContent = t('feedPreviewWithTarget', {
       pendingRaw,
@@ -447,6 +456,17 @@ function updateFeedPreviewStatus() {
     if (previewPercentEl) previewPercentEl.textContent = `${projectedPercent}%`;
     if (previewReferenceEl) previewReferenceEl.textContent = referenceFood || '-';
     if (previewRemainingTotalEl) previewRemainingTotalEl.textContent = `${remaining} g`;
+
+    const fedWidth = Math.max(0, Math.min(100, currentPercent));
+    const projectedWidth = Math.max(0, Math.min(100, projectedPercent));
+    const pendingWidth = Math.max(0, projectedWidth - fedWidth);
+    if (previewFedBarEl) {
+      previewFedBarEl.style.width = `${fedWidth}%`;
+    }
+    if (previewPendingBarEl) {
+      previewPendingBarEl.style.left = `${fedWidth}%`;
+      previewPendingBarEl.style.width = `${pendingWidth}%`;
+    }
   } else {
     previewEl.textContent = t('feedPreviewNoTarget', {
       pendingRaw,
@@ -456,6 +476,11 @@ function updateFeedPreviewStatus() {
     if (previewPercentEl) previewPercentEl.textContent = '-';
     if (previewReferenceEl) previewReferenceEl.textContent = '-';
     if (previewRemainingTotalEl) previewRemainingTotalEl.textContent = '-';
+    if (previewFedBarEl) previewFedBarEl.style.width = '0%';
+    if (previewPendingBarEl) {
+      previewPendingBarEl.style.left = '0%';
+      previewPendingBarEl.style.width = '0%';
+    }
   }
 }
 
@@ -489,7 +514,7 @@ function renderFeedFoodOptions() {
       const profile = appSettings.foodProfiles?.[foodKey];
       const quickAddValues = appSettings.quickAddEnabled ? (profile?.quickAddValues || []) : [];
       const currentAmount = Math.max(0, Math.floor(Number(feedMixAmounts?.[foodKey] || 0)));
-      const recommendationGrams = getFoodRecommendedDailyGrams(foodKey);
+      const recommendationGrams = getAdjustedFoodRecommendedDailyGrams(foodKey);
       const chipsMarkup = quickAddValues
         .map((grams) => `<button type="button" class="chip-btn" data-food-key="${foodKey}" data-gram="${grams}">+${grams}g</button>`)
         .join('');
@@ -651,6 +676,8 @@ const TRANSLATIONS = {
     feedPreviewRawLabel: 'Rohmenge (diese Eingabe)',
     feedPreviewRemainingYoungLabel: 'Rest Vet-Concept',
     feedPreviewRemainingPlatinumLabel: 'Rest Platinum',
+    feedPreviewLegendFed: 'Bereits gefüttert',
+    feedPreviewLegendPending: 'Würde dazu kommen',
     feedWeightFactorBadge: 'Anrechnung: {factor}%',
     sleepNotePlaceholder: 'Schlaf-Notiz (optional)',
     buttonStartWalk: '🚶 Spaziergang starten',
@@ -862,6 +889,8 @@ const TRANSLATIONS = {
     feedPreviewRawLabel: 'Raw amount (this entry)',
     feedPreviewRemainingYoungLabel: 'Remaining Vet-Concept',
     feedPreviewRemainingPlatinumLabel: 'Remaining Platinum',
+    feedPreviewLegendFed: 'Already fed',
+    feedPreviewLegendPending: 'Would be added',
     feedWeightFactorBadge: 'Factor: {factor}%',
     sleepNotePlaceholder: 'Sleep note (optional)',
     buttonStartWalk: '🚶 Start walk',
@@ -1107,6 +1136,8 @@ function applyStaticTranslations() {
   setText('feed-preview-raw-label', t('feedPreviewRawLabel'));
   setText('feed-preview-remaining-young-label', t('feedPreviewRemainingYoungLabel'));
   setText('feed-preview-remaining-platinum-label', t('feedPreviewRemainingPlatinumLabel'));
+  setText('feed-preview-legend-fed', t('feedPreviewLegendFed'));
+  setText('feed-preview-legend-pending', t('feedPreviewLegendPending'));
   setText('start-walk', t('buttonStartWalk'));
   setText('end-walk', t('buttonEndWalk'));
   setText('feed', t('buttonFeed'));

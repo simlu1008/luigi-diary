@@ -94,6 +94,16 @@
             <p id="feed-food-options-empty" class="timeline-subtitle" hidden>Aktiviere in den Einstellungen mindestens eine Futtersorte.</p>
           </div>
           <p id="feed-preview-status" class="feed-progress-text"></p>
+          <div class="feed-preview-bar-wrap">
+            <div class="feed-preview-bar-track" aria-hidden="true">
+              <div id="feed-preview-fed-bar" class="feed-preview-fed-bar"></div>
+              <div id="feed-preview-pending-bar" class="feed-preview-pending-bar"></div>
+            </div>
+            <div class="feed-preview-bar-legend">
+              <span><i class="feed-preview-dot feed-preview-dot-solid"></i> <span id="feed-preview-legend-fed">Bereits gefüttert</span></span>
+              <span><i class="feed-preview-dot feed-preview-dot-dashed"></i> <span id="feed-preview-legend-pending">Würde dazu kommen</span></span>
+            </div>
+          </div>
           <div class="feed-preview-grid" id="feed-preview-grid">
             <div class="feed-preview-item">
               <span id="feed-preview-progress-label" class="feed-preview-label">Fortschritt</span>
