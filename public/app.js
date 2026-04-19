@@ -315,9 +315,17 @@ function initializeFeedMixAmounts() {
   feedMixAmounts = nextMix;
 }
 
-function getFoodWeightFactorPercent(foodKey) {
-  const factor = Number(appSettings.foodProfiles?.[foodKey]?.weightFactorPercent);
-  return Number.isFinite(factor) && factor > 0 ? factor : 100;
+function getFoodRecommendationByKey(foodKey) {
+  if (foodKey === 'youngPackMini') return getYoungPackMiniRecommendation();
+  if (foodKey === 'platinumMenuPuppyChicken') return getPlatinumMenuPuppyChickenRecommendation();
+  return { errorKey: 'foodMissingTargetWeight' };
+}
+
+function getFoodRecommendedDailyGrams(foodKey) {
+  const recommendation = getFoodRecommendationByKey(foodKey);
+  if (recommendation?.errorKey) return null;
+  const grams = Number(recommendation?.gramsPerDay);
+  return Number.isFinite(grams) && grams > 0 ? grams : null;
 }
 
 function getPendingFeedMixRawTotal() {
@@ -327,15 +335,51 @@ function getPendingFeedMixRawTotal() {
   }, 0);
 }
 
-function getPendingFeedMixWeightedTotal() {
-  const weightedTotal = Object.entries(feedMixAmounts).reduce((sum, [foodKey, value]) => {
+function getPendingFeedMixProgressShare() {
+  return Object.entries(feedMixAmounts).reduce((sum, [foodKey, value]) => {
     const amount = Number(value);
-    if (!Number.isFinite(amount) || amount <= 0) return sum;
-    const factor = getFoodWeightFactorPercent(foodKey);
-    return sum + (amount * factor) / 100;
+    const recommendationGrams = getFoodRecommendedDailyGrams(foodKey);
+    if (!Number.isFinite(amount) || amount <= 0 || !recommendationGrams) return sum;
+    return sum + amount / recommendationGrams;
   }, 0);
+}
 
-  return Math.round(weightedTotal);
+function getFoodReferenceTarget() {
+  const activeKeys = getActiveFoodProfileKeys();
+  for (const foodKey of activeKeys) {
+    const gramsPerDay = getFoodRecommendedDailyGrams(foodKey);
+    if (gramsPerDay) {
+      return { foodKey, gramsPerDay };
+    }
+  }
+  return null;
+}
+
+function getEffectiveDailyTargetGrams() {
+  const referenceTarget = getFoodReferenceTarget();
+  if (referenceTarget?.gramsPerDay) return referenceTarget.gramsPerDay;
+  const fallback = Number(appSettings.dailyTargetG);
+  return Number.isFinite(fallback) && fallback > 0 ? fallback : null;
+}
+
+function getPendingFeedMixEquivalentGrams() {
+  const progressShare = getPendingFeedMixProgressShare();
+  const effectiveTarget = getEffectiveDailyTargetGrams();
+  if (!effectiveTarget || progressShare <= 0) return 0;
+  return Math.round(progressShare * effectiveTarget);
+}
+
+function getRemainingGramsForFood(progressShare, foodKey) {
+  const recommendationGrams = getFoodRecommendedDailyGrams(foodKey);
+  if (!recommendationGrams) return null;
+  const remainingShare = Math.max(0, 1 - progressShare);
+  return Math.round(remainingShare * recommendationGrams);
+}
+
+function getFeedReferenceLabel() {
+  const referenceTarget = getFoodReferenceTarget();
+  if (!referenceTarget) return '';
+  return getFoodDisplayName(referenceTarget.foodKey);
 }
 
 function updateFeedPreviewStatus() {
@@ -343,24 +387,31 @@ function updateFeedPreviewStatus() {
   if (!previewEl) return;
 
   const pendingRaw = getPendingFeedMixRawTotal();
-  const pendingWeighted = getPendingFeedMixWeightedTotal();
-  const projectedFed = todayFedGrams + pendingWeighted;
+  const pendingEquivalent = getPendingFeedMixEquivalentGrams();
+  const effectiveTarget = getEffectiveDailyTargetGrams();
+  const projectedFed = todayFedGrams + pendingEquivalent;
+  const projectedShare = getPendingFeedMixProgressShare() + (effectiveTarget ? todayFedGrams / effectiveTarget : 0);
+  const remainingYoung = getRemainingGramsForFood(projectedShare, 'youngPackMini');
+  const remainingPlatinum = getRemainingGramsForFood(projectedShare, 'platinumMenuPuppyChicken');
 
-  if (appSettings.dailyTargetG > 0) {
-    const projectedPercent = Math.min(999, Math.round((projectedFed / appSettings.dailyTargetG) * 100));
-    const remaining = Math.max(0, appSettings.dailyTargetG - projectedFed);
+  if (effectiveTarget) {
+    const projectedPercent = Math.min(999, Math.round((projectedFed / effectiveTarget) * 100));
+    const remaining = Math.max(0, effectiveTarget - projectedFed);
     previewEl.textContent = t('feedPreviewWithTarget', {
       pendingRaw,
-      pendingWeighted,
+      pendingEquivalent,
       projectedPercent,
       projectedFed,
-      target: appSettings.dailyTargetG,
+      target: effectiveTarget,
       remaining,
+      remainingYoung: remainingYoung ?? '-',
+      remainingPlatinum: remainingPlatinum ?? '-',
+      referenceFood: getFeedReferenceLabel(),
     });
   } else {
     previewEl.textContent = t('feedPreviewNoTarget', {
       pendingRaw,
-      pendingWeighted,
+      pendingEquivalent,
       projectedFed,
     });
   }
@@ -396,7 +447,7 @@ function renderFeedFoodOptions() {
       const profile = appSettings.foodProfiles?.[foodKey];
       const quickAddValues = appSettings.quickAddEnabled ? (profile?.quickAddValues || []) : [];
       const currentAmount = Math.max(0, Math.floor(Number(feedMixAmounts?.[foodKey] || 0)));
-      const weightFactorPercent = getFoodWeightFactorPercent(foodKey);
+      const recommendationGrams = getFoodRecommendedDailyGrams(foodKey);
       const chipsMarkup = quickAddValues
         .map((grams) => `<button type="button" class="chip-btn" data-food-key="${foodKey}" data-gram="${grams}">+${grams}g</button>`)
         .join('');
@@ -405,7 +456,7 @@ function renderFeedFoodOptions() {
         <div class="food-mix-row">
           <div class="food-mix-header">
             <span class="food-mix-name">${getFoodDisplayName(foodKey)}</span>
-            <span class="food-mix-factor">${t('feedWeightFactorBadge', { factor: weightFactorPercent })}</span>
+            <span class="food-mix-factor">${recommendationGrams ? t('feedRecommendedBadge', { grams: recommendationGrams }) : t('feedRecommendedUnknown')}</span>
           </div>
           <div class="feed-input-row">
             <label class="feed-amount-label" for="feed-amount-${foodKey}">${t('feedAmountLabel')}</label>
@@ -428,9 +479,12 @@ function buildFeedNoteForMix(rawNote) {
     .map(([foodKey, amount]) => {
       const grams = Math.max(0, Math.floor(Number(amount) || 0));
       if (grams <= 0) return null;
-      const factor = getFoodWeightFactorPercent(foodKey);
-      const weighted = Math.round((grams * factor) / 100);
-      return `${grams}g ${getFoodDisplayName(foodKey)} (${factor}%=${weighted}g)`;
+      const recommendationGrams = getFoodRecommendedDailyGrams(foodKey);
+      if (!recommendationGrams) {
+        return `${grams}g ${getFoodDisplayName(foodKey)}`;
+      }
+      const sharePercent = Math.round((grams / recommendationGrams) * 100);
+      return `${grams}g ${getFoodDisplayName(foodKey)} (${sharePercent}% von ${recommendationGrams}g)`;
     })
     .filter(Boolean)
     .join(' + ');
@@ -541,9 +595,11 @@ const TRANSLATIONS = {
     feedAmountLabel: 'Menge',
     feedFoodOptionsLabel: 'Futtersorten mischen',
     feedFoodOptionsEmpty: 'Aktiviere in den Einstellungen mindestens eine Futtersorte.',
-    feedPreviewWithTarget: 'Nach dieser Fütterung (gewichtet): {projectedPercent}% ({projectedFed}/{target} g), offen: {remaining} g · Rohmenge: {pendingRaw} g.',
-    feedPreviewNoTarget: 'Nach dieser Fütterung (gewichtet): {projectedFed} g gesamt heute · Rohmenge: {pendingRaw} g.',
+    feedPreviewWithTarget: 'Nach dieser Fütterung: {projectedPercent}% ({projectedFed}/{target} g, Referenz: {referenceFood}), offen: {remaining} g · Rohmenge: {pendingRaw} g · Rest: Vet {remainingYoung} g / Platinum {remainingPlatinum} g.',
+    feedPreviewNoTarget: 'Nach dieser Fütterung: {projectedFed} g gesamt heute · Rohmenge: {pendingRaw} g.',
     feedMixNoAmount: 'Bitte zuerst eine Futtermenge > 0 auswählen.',
+    feedRecommendedBadge: 'Empfehlung: {grams} g/Tag',
+    feedRecommendedUnknown: 'Empfehlung fehlt',
     feedWeightFactorBadge: 'Anrechnung: {factor}%',
     sleepNotePlaceholder: 'Schlaf-Notiz (optional)',
     buttonStartWalk: '🚶 Spaziergang starten',
@@ -608,7 +664,7 @@ const TRANSLATIONS = {
     statusNoAlone: 'Aktuell nicht alleine.',
     statusLastPipi: 'Letztes Pipi: {since}',
     statusLastPupu: 'Letztes Pupu: {since}',
-    statusFeedOpen: 'Futter offen heute: {remaining} g ({fed}/{target} g)',
+    statusFeedOpen: 'Futter offen heute: {remaining} g ({fed}/{target} g) · Referenz: {referenceFood}',
     statusFeedNoTarget: 'Futter heute: {fed} g',
     statusNever: 'noch kein Eintrag',
     timeJustNow: 'gerade eben',
@@ -742,9 +798,11 @@ const TRANSLATIONS = {
     feedAmountLabel: 'Amount',
     feedFoodOptionsLabel: 'Mix food types',
     feedFoodOptionsEmpty: 'Enable at least one food in settings.',
-    feedPreviewWithTarget: 'After this feeding (weighted): {projectedPercent}% ({projectedFed}/{target} g), remaining: {remaining} g · raw amount: {pendingRaw} g.',
-    feedPreviewNoTarget: 'After this feeding (weighted): {projectedFed} g total today · raw amount: {pendingRaw} g.',
+    feedPreviewWithTarget: 'After this feeding: {projectedPercent}% ({projectedFed}/{target} g, reference: {referenceFood}), remaining: {remaining} g · raw amount: {pendingRaw} g · remaining: Vet {remainingYoung} g / Platinum {remainingPlatinum} g.',
+    feedPreviewNoTarget: 'After this feeding: {projectedFed} g total today · raw amount: {pendingRaw} g.',
     feedMixNoAmount: 'Please select a feed amount > 0 first.',
+    feedRecommendedBadge: 'Recommended: {grams} g/day',
+    feedRecommendedUnknown: 'Recommendation missing',
     feedWeightFactorBadge: 'Factor: {factor}%',
     sleepNotePlaceholder: 'Sleep note (optional)',
     buttonStartWalk: '🚶 Start walk',
@@ -809,7 +867,7 @@ const TRANSLATIONS = {
     statusNoAlone: 'Currently not alone.',
     statusLastPipi: 'Last pee: {since}',
     statusLastPupu: 'Last poop: {since}',
-    statusFeedOpen: 'Feed remaining today: {remaining} g ({fed}/{target} g)',
+    statusFeedOpen: 'Feed remaining today: {remaining} g ({fed}/{target} g) · reference: {referenceFood}',
     statusFeedNoTarget: 'Feed today: {fed} g',
     statusNever: 'no entry yet',
     timeJustNow: 'just now',
@@ -1328,7 +1386,7 @@ function renderFeedOpenStatus() {
   const feedProgressTextEl = document.getElementById('feed-progress-text');
   if (!feedOpenStatusEl) return;
 
-  const target = Math.max(0, appSettings.dailyTargetG || 0);
+  const target = Math.max(0, Number(getEffectiveDailyTargetGrams() || 0));
   const fed = Math.max(0, todayFedGrams || 0);
   if (target <= 0) {
     feedOpenStatusEl.textContent = t('statusFeedNoTarget', { fed });
@@ -1340,7 +1398,12 @@ function renderFeedOpenStatus() {
   }
 
   const remaining = Math.max(0, target - fed);
-  feedOpenStatusEl.textContent = t('statusFeedOpen', { remaining, fed, target });
+  feedOpenStatusEl.textContent = t('statusFeedOpen', {
+    remaining,
+    fed,
+    target,
+    referenceFood: getFeedReferenceLabel(),
+  });
 
   const progressPercent = Math.max(0, Math.min(100, Math.round((fed / target) * 100)));
   if (feedProgressWrapEl) {
@@ -2605,7 +2668,7 @@ function bindActions() {
 
   feedButton.addEventListener('click', async () => {
     const userNote = document.getElementById('feed-note').value.trim();
-    const normalizedAmountG = getPendingFeedMixWeightedTotal();
+    const normalizedAmountG = getPendingFeedMixEquivalentGrams();
     if (!Number.isFinite(normalizedAmountG) || normalizedAmountG <= 0) {
       alert(t('feedMixNoAmount'));
       return;
