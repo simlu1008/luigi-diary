@@ -648,6 +648,8 @@ let lastPipiDoneAt = null;
 let lastPupuDoneAt = null;
 let eliminationStatusIntervalId = null;
 let todayFedGrams = 0;
+let todayFeedProvidedGrams = 0;
+let todayFeedConsumedGrams = 0;
 let quickAddUndoTimerId = null;
 let quickAddUndoCountdownTimerId = null;
 let quickAddUndoEventId = null;
@@ -677,6 +679,10 @@ const TRANSLATIONS = {
     headingSettings: 'Einstellungen',
     buttonEditEntry: 'Bearbeiten',
     buttonDeleteEntry: 'Löschen',
+    buttonFeedConsumedEntry: 'Gefressen %',
+    iconFeedConsumedEntryAria: 'Gefressen-Prozent setzen',
+    feedConsumedPrompt: 'Wie viel wurde gegessen?\nEintrag: {provided} g bereitgestellt\nBitte Prozent eingeben (0-100):',
+    feedConsumedPromptInvalid: 'Bitte einen gültigen Prozentwert zwischen 0 und 100 eingeben.',
     iconEditEntryAria: 'Eintrag bearbeiten',
     iconDeleteEntryAria: 'Eintrag löschen',
     confirmDeleteEntry: 'Diesen Eintrag wirklich löschen?\n\n{entry}',
@@ -786,8 +792,8 @@ const TRANSLATIONS = {
     statusNoAlone: 'Aktuell nicht alleine.',
     statusLastPipi: 'Letztes Pipi: {since}',
     statusLastPupu: 'Letztes Pupu: {since}',
-    statusFeedOpen: 'Futter offen heute: {remaining} g ({fed}/{target} g) · Referenz: {referenceFood}',
-    statusFeedNoTarget: 'Futter heute: {fed} g',
+    statusFeedOpen: 'Futter offen heute: {remaining} g (gegessen {fed}/{target} g · bereitgestellt {provided} g) · Referenz: {referenceFood}',
+    statusFeedNoTarget: 'Futter heute: gegessen {fed} g · bereitgestellt {provided} g',
     statusNever: 'noch kein Eintrag',
     timeJustNow: 'gerade eben',
     timeMinutesAgo: 'vor {minutes} min',
@@ -795,7 +801,7 @@ const TRANSLATIONS = {
     timeHoursMinutesAgo: 'vor {hours} h {minutes} min',
     timeDaysAgo: 'vor {days} d',
     timeDaysHoursAgo: 'vor {days} d {hours} h',
-    eventFeed: '🍽️ Füttern · {grams} g · {time}{note}',
+    eventFeed: '🍽️ Füttern · bereitgestellt {grams} g · gegessen {consumed} g ({percent}%) · {time}{note}',
     eventSleep: '😴 Schlaf · {start} bis {end} · {hours} h{note}',
     eventAlone: '🏠 Alleine · {start} bis {end} · {hours} h{note}',
     eventWalk: '🚶 Spaziergang · {start} · {minutes} min · {pipi}, {pupu}{note}',
@@ -894,6 +900,10 @@ const TRANSLATIONS = {
     headingSettings: 'Settings',
     buttonEditEntry: 'Edit',
     buttonDeleteEntry: 'Delete',
+    buttonFeedConsumedEntry: 'Consumed %',
+    iconFeedConsumedEntryAria: 'Set consumed percent',
+    feedConsumedPrompt: 'How much was eaten?\nEntry: {provided} g provided\nEnter percent (0-100):',
+    feedConsumedPromptInvalid: 'Please enter a valid percent between 0 and 100.',
     iconEditEntryAria: 'Edit entry',
     iconDeleteEntryAria: 'Delete entry',
     confirmDeleteEntry: 'Delete this entry?\n\n{entry}',
@@ -1003,8 +1013,8 @@ const TRANSLATIONS = {
     statusNoAlone: 'Currently not alone.',
     statusLastPipi: 'Last pee: {since}',
     statusLastPupu: 'Last poop: {since}',
-    statusFeedOpen: 'Feed remaining today: {remaining} g ({fed}/{target} g) · reference: {referenceFood}',
-    statusFeedNoTarget: 'Feed today: {fed} g',
+    statusFeedOpen: 'Feed remaining today: {remaining} g (eaten {fed}/{target} g · provided {provided} g) · reference: {referenceFood}',
+    statusFeedNoTarget: 'Feed today: eaten {fed} g · provided {provided} g',
     statusNever: 'no entry yet',
     timeJustNow: 'just now',
     timeMinutesAgo: '{minutes} min ago',
@@ -1012,7 +1022,7 @@ const TRANSLATIONS = {
     timeHoursMinutesAgo: '{hours} h {minutes} min ago',
     timeDaysAgo: '{days} d ago',
     timeDaysHoursAgo: '{days} d {hours} h ago',
-    eventFeed: '🍽️ Feed · {grams} g · {time}{note}',
+    eventFeed: '🍽️ Feed · provided {grams} g · eaten {consumed} g ({percent}%) · {time}{note}',
     eventSleep: '😴 Sleep · {start} to {end} · {hours} h{note}',
     eventAlone: '🏠 Alone · {start} to {end} · {hours} h{note}',
     eventWalk: '🚶 Walk · {start} · {minutes} min · {pipi}, {pupu}{note}',
@@ -1564,8 +1574,9 @@ function renderFeedOpenStatus() {
 
   const fullTarget = Math.max(0, Number(getEffectiveDailyTargetGrams() || 0));
   const target = Math.round(fullTarget * getFoodTargetFraction());
-  const fed = Math.max(0, todayFedGrams || 0);
-  const statusTextNoTarget = t('statusFeedNoTarget', { fed });
+  const fed = Math.max(0, todayFeedConsumedGrams || todayFedGrams || 0);
+  const provided = Math.max(0, todayFeedProvidedGrams || 0);
+  const statusTextNoTarget = t('statusFeedNoTarget', { fed, provided });
   if (target <= 0) {
     if (feedOpenStatusEl) feedOpenStatusEl.textContent = statusTextNoTarget;
     if (todayFeedOpenStatusEl) todayFeedOpenStatusEl.textContent = statusTextNoTarget;
@@ -1583,6 +1594,7 @@ function renderFeedOpenStatus() {
   const statusTextOpen = t('statusFeedOpen', {
     remaining,
     fed,
+    provided,
     target,
     referenceFood: getFeedReferenceLabel(),
   });
@@ -1704,7 +1716,10 @@ function eventLabel(event) {
   const note = event.note ? t('notePrefix', { note: event.note }) : '';
 
   if (event.type === 'feed') {
-    return t('eventFeed', { grams: event.feed_amount_g ?? 0, time: formatDateTime(event.created_at), note });
+    const provided = Math.max(0, Number(event.feed_amount_g ?? 0));
+    const percent = Math.max(0, Math.min(100, Math.round(Number(event.feed_consumed_percent ?? 100))));
+    const consumed = Math.round(provided * (percent / 100));
+    return t('eventFeed', { grams: provided, consumed, percent, time: formatDateTime(event.created_at), note });
   }
 
   if (event.type === 'sleep') {
@@ -2325,6 +2340,8 @@ async function refreshAll() {
   document.getElementById('feeds').textContent = String(stats.feeds);
   document.getElementById('minutes').textContent = String(stats.totalWalkMinutes);
   todayFedGrams = Number(stats.totalFeedGrams ?? 0);
+  todayFeedProvidedGrams = Number(stats.totalFeedProvidedGrams ?? stats.totalFeedGrams ?? 0);
+  todayFeedConsumedGrams = Number(stats.totalFeedConsumedGrams ?? stats.totalFeedGrams ?? 0);
   renderFeedOpenStatus();
   document.getElementById('sleep-hours').textContent = String(stats.totalSleepHours ?? 0);
   document.getElementById('sleep-sessions').textContent = String(stats.sleepSessions ?? 0);
@@ -2364,6 +2381,18 @@ async function refreshAll() {
     deleteButton.textContent = '🗑️';
     deleteButton.title = t('iconDeleteEntryAria');
     deleteButton.setAttribute('aria-label', t('iconDeleteEntryAria'));
+
+    if (event.type === 'feed') {
+      const consumedButton = document.createElement('button');
+      consumedButton.type = 'button';
+      consumedButton.className = 'event-icon-btn event-icon-btn-consumed';
+      consumedButton.dataset.action = 'set-feed-consumed-percent';
+      consumedButton.dataset.eventId = String(event.id);
+      consumedButton.textContent = '%';
+      consumedButton.title = t('iconFeedConsumedEntryAria');
+      consumedButton.setAttribute('aria-label', t('iconFeedConsumedEntryAria'));
+      actions.append(consumedButton);
+    }
 
     actions.append(editButton, deleteButton);
     content.appendChild(actions);
@@ -2678,6 +2707,34 @@ function bindActions() {
 
     if (button.dataset.action === 'edit-event') {
       openEditDialog(selectedEvent);
+      return;
+    }
+
+    if (button.dataset.action === 'set-feed-consumed-percent') {
+      if (selectedEvent.type !== 'feed') return;
+      const provided = Math.max(0, Number(selectedEvent.feed_amount_g ?? 0));
+      const currentPercent = Math.max(0, Math.min(100, Math.round(Number(selectedEvent.feed_consumed_percent ?? 100))));
+      const input = window.prompt(
+        t('feedConsumedPrompt', { provided }),
+        String(currentPercent)
+      );
+      if (input === null) return;
+
+      const nextPercent = Number(String(input).trim().replace(',', '.'));
+      if (!Number.isFinite(nextPercent) || nextPercent < 0 || nextPercent > 100) {
+        alert(t('feedConsumedPromptInvalid'));
+        return;
+      }
+
+      try {
+        await api(`/api/events/${eventId}`, {
+          method: 'PATCH',
+          body: JSON.stringify({ consumed_percent: Math.round(nextPercent) }),
+        });
+        await refreshAll();
+      } catch (error) {
+        alert(translateServerError(error.message));
+      }
       return;
     }
 

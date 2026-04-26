@@ -481,6 +481,19 @@ h1 {
   );
 }
 
+.feed-preview-over-bar {
+  position: absolute;
+  top: -2px;
+  bottom: -2px;
+  width: 4px;
+  right: 0;
+  background: #ef4444;
+  border-radius: 2px;
+  box-shadow: 0 0 0 1px #fff, 0 0 4px 1px #ef4444aa;
+  z-index: 2;
+  display: block;
+}
+
 .feed-preview-bar-legend {
   display: flex;
   flex-wrap: wrap;
@@ -982,6 +995,10 @@ input[type='datetime-local'] {
 
 .event-icon-btn-edit {
   color: #1d4ed8;
+}
+
+.event-icon-btn-consumed {
+  color: #7c3aed;
 }
 
 .event-icon-btn-delete {

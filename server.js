@@ -101,6 +101,9 @@ function getOpenAlone(store) {
 }
 
 function serializeEvent(event) {
+  const consumedPercent = event.type === 'feed' ? normalizeFeedConsumedPercent(event.consumedPercent) : null;
+  const providedAmount = event.type === 'feed' ? Number(event.feedAmountG || 0) : 0;
+  const consumedAmount = event.type === 'feed' ? Math.round(providedAmount * (consumedPercent / 100)) : null;
   return {
     id: event.id,
     type: event.type,
@@ -119,6 +122,8 @@ function serializeEvent(event) {
     alone_end: event.aloneEnd,
     alone_hours: event.type === 'alone' && Number.isFinite(event.durationMin) ? Number((event.durationMin / 60).toFixed(2)) : null,
     feed_amount_g: event.feedAmountG,
+    feed_consumed_percent: consumedPercent,
+    feed_consumed_amount_g: consumedAmount,
     note: event.note,
   };
 }
@@ -158,6 +163,12 @@ function toIntegerOrNull(value) {
   return Math.max(0, Math.floor(numeric));
 }
 
+function normalizeFeedConsumedPercent(value) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return 100;
+  return Math.max(0, Math.min(100, Math.round(numeric)));
+}
+
 function normalizeImportedEvent(rawEvent) {
   if (!rawEvent || typeof rawEvent !== 'object') return null;
 
@@ -173,6 +184,12 @@ function normalizeImportedEvent(rawEvent) {
   const aloneEnd = toIsoOrNull(rawEvent.alone_end ?? rawEvent.aloneEnd);
   const durationMin = toIntegerOrNull(rawEvent.duration_min ?? rawEvent.durationMin);
   const feedAmountG = toIntegerOrNull(rawEvent.feed_amount_g ?? rawEvent.feedAmountG ?? rawEvent.amount_g ?? rawEvent.amountG);
+  const consumedPercent = normalizeFeedConsumedPercent(
+    rawEvent.feed_consumed_percent
+    ?? rawEvent.feedConsumedPercent
+    ?? rawEvent.consumed_percent
+    ?? rawEvent.consumedPercent
+  );
   const pipi = toBooleanOrNull(rawEvent.pipi);
   const pupu = toBooleanOrNull(rawEvent.pupu);
   const pipiAt = toIsoOrNull(rawEvent.pipi_at ?? rawEvent.pipiAt);
@@ -196,6 +213,7 @@ function normalizeImportedEvent(rawEvent) {
       aloneStart: null,
       aloneEnd: null,
       feedAmountG,
+      consumedPercent,
       note,
     };
   }
@@ -218,6 +236,7 @@ function normalizeImportedEvent(rawEvent) {
       aloneStart: null,
       aloneEnd: null,
       feedAmountG: null,
+      consumedPercent: null,
       note,
     };
   }
@@ -240,6 +259,7 @@ function normalizeImportedEvent(rawEvent) {
       aloneStart,
       aloneEnd,
       feedAmountG: null,
+      consumedPercent: null,
       note,
     };
   }
@@ -261,6 +281,7 @@ function normalizeImportedEvent(rawEvent) {
     aloneStart: null,
     aloneEnd: null,
     feedAmountG: null,
+    consumedPercent: null,
     note,
   };
 }
@@ -281,6 +302,7 @@ function eventFingerprint(event) {
     event.aloneStart,
     event.aloneEnd,
     event.feedAmountG,
+    normalizeFeedConsumedPercent(event.consumedPercent),
     event.note,
   ].join('|');
 }
@@ -646,6 +668,7 @@ app.post('/api/feed', (req, res) => {
     aloneStart: null,
     aloneEnd: null,
     feedAmountG: amountG,
+    consumedPercent: 100,
     note: note || null,
   };
 
@@ -784,6 +807,7 @@ app.post('/api/manual/event', (req, res) => {
       aloneStart: null,
       aloneEnd: null,
       feedAmountG: toIntegerOrNull(req.body?.amount_g),
+      consumedPercent: normalizeFeedConsumedPercent(req.body?.consumed_percent),
       note,
     };
     const inserted = pushEvent(store, event);
@@ -813,6 +837,7 @@ app.post('/api/manual/event', (req, res) => {
       aloneStart: null,
       aloneEnd: null,
       feedAmountG: null,
+      consumedPercent: null,
       note,
     };
 
@@ -850,6 +875,7 @@ app.post('/api/manual/event', (req, res) => {
       aloneStart,
       aloneEnd,
       feedAmountG: null,
+      consumedPercent: null,
       note,
     };
 
@@ -877,6 +903,7 @@ app.post('/api/manual/event', (req, res) => {
     aloneStart: null,
     aloneEnd: null,
     feedAmountG: null,
+    consumedPercent: null,
     note,
   };
 
@@ -1050,6 +1077,19 @@ app.patch('/api/events/:id', (req, res) => {
       }
       event.feedAmountG = nextAmount;
     }
+
+    if (Object.prototype.hasOwnProperty.call(req.body, 'consumed_percent')) {
+      const rawPercent = req.body.consumed_percent;
+      if (rawPercent === null || rawPercent === '') {
+        event.consumedPercent = 100;
+      } else {
+        const numeric = Number(rawPercent);
+        if (!Number.isFinite(numeric)) {
+          return res.status(400).json({ error: 'Ungültiger Prozentwert für gefressen.' });
+        }
+        event.consumedPercent = normalizeFeedConsumedPercent(numeric);
+      }
+    }
   }
 
   if (event.type === 'walk') {
@@ -1204,6 +1244,8 @@ app.get('/api/export/csv', (_req, res) => {
     'sleep_hours',
     'alone_hours',
     'feed_amount_g',
+    'feed_consumed_percent',
+    'feed_consumed_amount_g',
     'pipi',
     'pupu',
     'pipi_at',
@@ -1225,6 +1267,8 @@ app.get('/api/export/csv', (_req, res) => {
       event.sleep_hours,
       event.alone_hours,
       event.feed_amount_g,
+      event.feed_consumed_percent,
+      event.feed_consumed_amount_g,
       event.pipi,
       event.pupu,
       event.pipi_at,
@@ -1265,7 +1309,11 @@ app.get('/api/stats/today', (_req, res) => {
   );
 
   const totalWalkMinutes = walks.reduce((sum, event) => sum + (event.durationMin || 0), 0);
-  const totalFeedGrams = feeds.reduce((sum, event) => sum + (event.feedAmountG || 0), 0);
+  const totalFeedProvidedGrams = feeds.reduce((sum, event) => sum + (event.feedAmountG || 0), 0);
+  const totalFeedConsumedGrams = feeds.reduce(
+    (sum, event) => sum + Math.round(Number(event.feedAmountG || 0) * (normalizeFeedConsumedPercent(event.consumedPercent) / 100)),
+    0
+  );
   const totalSleepMinutes = sleeps.reduce(
     (sum, event) => sum + minutesWithinRange(event.sleepStart, event.sleepEnd, todayStart.toISOString(), todayEnd.toISOString()),
     0
@@ -1276,7 +1324,9 @@ app.get('/api/stats/today', (_req, res) => {
   res.json({
     walks: walks.length,
     feeds: feeds.length,
-    totalFeedGrams,
+    totalFeedGrams: totalFeedConsumedGrams,
+    totalFeedProvidedGrams,
+    totalFeedConsumedGrams,
     totalWalkMinutes,
     sleepSessions: sleeps.length,
     totalSleepHours: Number((totalSleepMinutes / 60).toFixed(2)),
