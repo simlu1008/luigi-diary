@@ -340,7 +340,12 @@ function setupFoodAccordion() {
 }
 
 function getActiveFoodProfileKeys() {
-  return Object.keys(FOOD_PROFILE_DEFINITIONS).filter((foodKey) => appSettings.foodProfiles?.[foodKey]?.enabled);
+  return Object.keys(FOOD_PROFILE_DEFINITIONS).filter((foodKey) => {
+    const definition = FOOD_PROFILE_DEFINITIONS[foodKey];
+    const enabledInput = definition?.enabledInputId ? document.getElementById(definition.enabledInputId) : null;
+    if (enabledInput) return enabledInput.checked === true;
+    return appSettings.foodProfiles?.[foodKey]?.enabled === true;
+  });
 }
 
 function initializeFeedMixAmounts() {
@@ -1455,6 +1460,10 @@ function setActiveTab(tabName) {
   if (tabToday) tabToday.classList.toggle('active', currentTab === 'today');
   if (tabFood) tabFood.classList.toggle('active', currentTab === 'food');
   if (tabSettings) tabSettings.classList.toggle('active', currentTab === 'settings');
+
+  if (currentTab === 'food') {
+    renderFeedFoodOptions();
+  }
 }
 
 function parseTimestamp(value) {
@@ -2900,6 +2909,18 @@ function bindActions() {
     saveAppSettings();
     applySettingsToForm();
     if (settingsResultEl) settingsResultEl.textContent = t('settingsSaved');
+  });
+
+  settingsFoodYoungEnabled?.addEventListener('change', () => {
+    renderFeedFoodOptions();
+  });
+
+  settingsFoodPlatinumEnabled?.addEventListener('change', () => {
+    renderFeedFoodOptions();
+  });
+
+  settingsFoodPlatinumMiniEnabled?.addEventListener('change', () => {
+    renderFeedFoodOptions();
   });
 
   pipiCheckbox.addEventListener('change', () => {
