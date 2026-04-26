@@ -27,6 +27,20 @@ const FOOD_CONFIGS = {
       12: { 2.5: 125, 5: 250, 7.5: 375, 10: 400, 12.5: 500, 15: 600, 20: 680, 25: 850, 30: 1020, 40: 1200, 60: 1800, 80: 2400 },
     },
   },
+  platinumPuppyMiniChicken: {
+    months: [2, 4, 6, 8, 10, 12],
+    weights: [1, 2.5, 3, 5, 7.5, 10, 12.5, 15, 20, 25, 30, 40, 60, 80],
+    maxTargetWeightKg: 80,
+    unsupportedKey: 'foodUnsupportedTargetWeightPlatinumPuppyMiniChicken',
+    table: {
+      2: { 1: 25, 2.5: 50, 3: 55, 5: 85, 7.5: 115, 10: 130, 12.5: 145, 15: 160, 20: 205, 25: 235, 30: 270, 40: 320, 60: 370, 80: 410 },
+      4: { 1: 30, 2.5: 55, 3: 60, 5: 105, 7.5: 145, 10: 160, 12.5: 180, 15: 215, 20: 260, 25: 300, 30: 360, 40: 420, 60: 580, 80: 710 },
+      6: { 1: 40, 2.5: 60, 3: 75, 5: 110, 7.5: 150, 10: 175, 12.5: 195, 15: 220, 20: 275, 25: 320, 30: 370, 40: 440, 60: 605, 80: 750 },
+      8: { 1: 30, 2.5: 55, 3: 65, 5: 100, 7.5: 140, 10: 165, 12.5: 185, 15: 215, 20: 270, 25: 320, 30: 370, 40: 500, 60: 650, 80: 820 },
+      10: { 1: 30, 2.5: 55, 3: 65, 5: 95, 7.5: 135, 10: 160, 12.5: 180, 15: 215, 20: 270, 25: 320, 30: 365, 40: 455, 60: 630, 80: 810 },
+      12: { 1: 30, 2.5: 50, 3: 65, 5: 85, 7.5: 115, 10: 150, 12.5: 165, 15: 190, 20: 250, 25: 300, 30: 325, 40: 425, 60: 600, 80: 750 },
+    },
+  },
 };
 
 const FOOD_PROFILE_DEFINITIONS = {
@@ -46,6 +60,14 @@ const FOOD_PROFILE_DEFINITIONS = {
     defaultWeightFactorPercent: 100,
     labelKey: 'foodNamePlatinumMenuPuppyChicken',
   },
+  platinumPuppyMiniChicken: {
+    key: 'platinumPuppyMiniChicken',
+    enabledInputId: 'settings-food-platinum-mini-enabled',
+    chipInputIds: ['settings-food-platinum-mini-chip-1', 'settings-food-platinum-mini-chip-2', 'settings-food-platinum-mini-chip-3'],
+    defaultQuickAddValues: [30, 50, 70],
+    defaultWeightFactorPercent: 100,
+    labelKey: 'foodNamePlatinumPuppyMiniChicken',
+  },
 };
 
 function createDefaultFoodProfiles() {
@@ -59,6 +81,11 @@ function createDefaultFoodProfiles() {
       enabled: false,
       quickAddValues: [...FOOD_PROFILE_DEFINITIONS.platinumMenuPuppyChicken.defaultQuickAddValues],
       weightFactorPercent: FOOD_PROFILE_DEFINITIONS.platinumMenuPuppyChicken.defaultWeightFactorPercent,
+    },
+    platinumPuppyMiniChicken: {
+      enabled: false,
+      quickAddValues: [...FOOD_PROFILE_DEFINITIONS.platinumPuppyMiniChicken.defaultQuickAddValues],
+      weightFactorPercent: FOOD_PROFILE_DEFINITIONS.platinumPuppyMiniChicken.defaultWeightFactorPercent,
     },
   };
 }
@@ -248,6 +275,10 @@ function getPlatinumMenuPuppyChickenRecommendation() {
   return getFoodRecommendation(FOOD_CONFIGS.platinumMenuPuppyChicken);
 }
 
+function getPlatinumPuppyMiniChickenRecommendation() {
+  return getFoodRecommendation(FOOD_CONFIGS.platinumPuppyMiniChicken);
+}
+
 function updateFoodRecommendationCard(summaryElementId, amountElementId, recommendation) {
   const summaryEl = document.getElementById(summaryElementId);
   const amountEl = document.getElementById(amountElementId);
@@ -280,6 +311,7 @@ function updateFoodRecommendationCard(summaryElementId, amountElementId, recomme
 function updateFoodRecommendationUi() {
   updateFoodRecommendationCard('food-accordion-summary-1', 'food-recommendation-amount-1', getYoungPackMiniRecommendation());
   updateFoodRecommendationCard('food-accordion-summary-2', 'food-recommendation-amount-2', getPlatinumMenuPuppyChickenRecommendation());
+  updateFoodRecommendationCard('food-accordion-summary-3', 'food-recommendation-amount-3', getPlatinumPuppyMiniChickenRecommendation());
 }
 
 function setupFoodAccordion() {
@@ -324,6 +356,7 @@ function initializeFeedMixAmounts() {
 function getFoodRecommendationByKey(foodKey) {
   if (foodKey === 'youngPackMini') return getYoungPackMiniRecommendation();
   if (foodKey === 'platinumMenuPuppyChicken') return getPlatinumMenuPuppyChickenRecommendation();
+  if (foodKey === 'platinumPuppyMiniChicken') return getPlatinumPuppyMiniChickenRecommendation();
   return { errorKey: 'foodMissingTargetWeight' };
 }
 
@@ -409,6 +442,7 @@ function updateFeedPreviewStatus() {
   const previewRawEl = document.getElementById('feed-preview-raw');
   const previewRemainingYoungEl = document.getElementById('feed-preview-remaining-young');
   const previewRemainingPlatinumEl = document.getElementById('feed-preview-remaining-platinum');
+  const previewRemainingPlatinumMiniEl = document.getElementById('feed-preview-remaining-platinum-mini');
   const candyHintEl = document.getElementById('feed-candy-share-hint');
   const previewFedBarEl = document.getElementById('feed-preview-fed-bar');
   const previewPendingBarEl = document.getElementById('feed-preview-pending-bar');
@@ -426,6 +460,7 @@ function updateFeedPreviewStatus() {
   const projectedFed = fullTarget ? Math.round(projectedShare * fullTarget) : (todayFedGrams + pendingEquivalent);
   const remainingYoung = getRemainingGramsForFood(projectedShare, requiredFoodShare, 'youngPackMini');
   const remainingPlatinum = getRemainingGramsForFood(projectedShare, requiredFoodShare, 'platinumMenuPuppyChicken');
+  const remainingPlatinumMini = getRemainingGramsForFood(projectedShare, requiredFoodShare, 'platinumPuppyMiniChicken');
   const referenceFood = getFeedReferenceLabel();
   const candyPercent = getCandySharePercent();
   const foodPercent = Math.max(0, 100 - candyPercent);
@@ -437,6 +472,7 @@ function updateFeedPreviewStatus() {
   if (previewRawEl) previewRawEl.textContent = `${pendingRaw} g`;
   if (previewRemainingYoungEl) previewRemainingYoungEl.textContent = remainingYoung === null ? '-' : `${remainingYoung} g`;
   if (previewRemainingPlatinumEl) previewRemainingPlatinumEl.textContent = remainingPlatinum === null ? '-' : `${remainingPlatinum} g`;
+  if (previewRemainingPlatinumMiniEl) previewRemainingPlatinumMiniEl.textContent = remainingPlatinumMini === null ? '-' : `${remainingPlatinumMini} g`;
 
   if (foodTarget && foodTarget > 0) {
     const projectedPercent = Math.min(999, Math.round((projectedFed / foodTarget) * 100));
@@ -451,11 +487,11 @@ function updateFeedPreviewStatus() {
       remaining,
       remainingYoung: remainingYoung ?? '-',
       remainingPlatinum: remainingPlatinum ?? '-',
+      remainingPlatinumMini: remainingPlatinumMini ?? '-',
       referenceFood,
     });
     if (previewPercentEl) previewPercentEl.textContent = `${projectedPercent}%`;
     if (previewReferenceEl) previewReferenceEl.textContent = referenceFood || '-';
-    // removed previewRemainingTotalEl
 
     const fedWidth = Math.max(0, Math.min(100, currentPercent));
     const projectedWidth = Math.max(0, Math.min(100, projectedPercent));
@@ -467,7 +503,6 @@ function updateFeedPreviewStatus() {
       previewPendingBarEl.style.left = `${fedWidth}%`;
       previewPendingBarEl.style.width = `${pendingWidth}%`;
     }
-    // Show red marker if projected > 100%
     if (previewOverBarEl) {
       if (projectedPercent > 100) {
         previewOverBarEl.style.display = 'block';
@@ -483,7 +518,6 @@ function updateFeedPreviewStatus() {
     });
     if (previewPercentEl) previewPercentEl.textContent = '-';
     if (previewReferenceEl) previewReferenceEl.textContent = '-';
-    // removed previewRemainingTotalEl
     if (previewFedBarEl) previewFedBarEl.style.width = '0%';
     if (previewPendingBarEl) {
       previewPendingBarEl.style.left = '0%';
@@ -685,6 +719,7 @@ const TRANSLATIONS = {
     feedPreviewRawLabel: 'Rohmenge (diese Eingabe)',
     feedPreviewRemainingYoungLabel: 'Rest Vet-Concept',
     feedPreviewRemainingPlatinumLabel: 'Rest Platinum',
+    feedPreviewRemainingPlatinumMiniLabel: 'Rest Platinum Puppy (Mini)',
     feedPreviewLegendFed: 'Bereits gefüttert',
     feedPreviewLegendPending: 'Würde dazu kommen',
     feedWeightFactorBadge: 'Anrechnung: {factor}%',
@@ -796,8 +831,10 @@ const TRANSLATIONS = {
     foodConfigSubtitle: 'Aktiviere Futtersorten und definiere je Sorte drei Quick-Add-Werte.',
     foodNameYoungPackMini: 'YOUNG PACK MINI (vet-concept)',
     foodNamePlatinumMenuPuppyChicken: 'PLATINUM Menu Puppy Chicken',
+    foodNamePlatinumPuppyMiniChicken: 'PLATINUM Puppy (Mini) Chicken',
     settingsFoodYoungEnabledLabel: 'YOUNG PACK MINI wird aktuell gefüttert',
     settingsFoodPlatinumEnabledLabel: 'PLATINUM Menu Puppy Chicken wird aktuell gefüttert',
+    settingsFoodPlatinumMiniEnabledLabel: 'PLATINUM Puppy (Mini) Chicken wird aktuell gefüttert',
     settingsFoodWeightFactorLabel: 'Anrechnungsfaktor (%)',
     settingsFoodChip1Label: 'Quick Add 1 (g)',
     settingsFoodChip2Label: 'Quick Add 2 (g)',
@@ -816,6 +853,7 @@ const TRANSLATIONS = {
     foodMissingTargetWeight: 'Bitte zuerst ein Zielgewicht/Endgewicht in den Einstellungen angeben.',
     foodUnsupportedTargetWeightYoungPackMini: 'YOUNG PACK MINI ist bis 15 kg Zielgewicht ausgelegt. Bitte für höhere Zielgewichte auf MIDI/MAXI wechseln.',
     foodUnsupportedTargetWeightPlatinumPuppyChicken: 'PLATINUM Menu Puppy Chicken ist bis 80 kg Zielgewicht ausgelegt.',
+    foodUnsupportedTargetWeightPlatinumPuppyMiniChicken: 'PLATINUM Puppy (Mini) Chicken ist bis 80 kg Zielgewicht ausgelegt.',
     foodRecommendationExact: 'Empfohlene Tagesmenge: {grams} g (Alter: {age} Monate, Zielgewicht: {targetWeight} kg).',
     foodRecommendationInterpolated: 'Empfohlene Tagesmenge: {grams} g (Alter: {age} Monate, Zielgewicht: {targetWeight} kg; interpoliert zwischen {lowerWeight} kg und {upperWeight} kg).',
     quickAddSaved: '✓ {grams} g gespeichert',
@@ -898,6 +936,7 @@ const TRANSLATIONS = {
     feedPreviewRawLabel: 'Raw amount (this entry)',
     feedPreviewRemainingYoungLabel: 'Remaining Vet-Concept',
     feedPreviewRemainingPlatinumLabel: 'Remaining Platinum',
+    feedPreviewRemainingPlatinumMiniLabel: 'Remaining Platinum Puppy (Mini)',
     feedPreviewLegendFed: 'Already fed',
     feedPreviewLegendPending: 'Would be added',
     feedWeightFactorBadge: 'Factor: {factor}%',
@@ -1009,8 +1048,10 @@ const TRANSLATIONS = {
     foodConfigSubtitle: 'Enable food types and define three quick-add values per type.',
     foodNameYoungPackMini: 'YOUNG PACK MINI (vet-concept)',
     foodNamePlatinumMenuPuppyChicken: 'PLATINUM Menu Puppy Chicken',
+    foodNamePlatinumPuppyMiniChicken: 'PLATINUM Puppy (Mini) Chicken',
     settingsFoodYoungEnabledLabel: 'YOUNG PACK MINI is currently fed',
     settingsFoodPlatinumEnabledLabel: 'PLATINUM Menu Puppy Chicken is currently fed',
+    settingsFoodPlatinumMiniEnabledLabel: 'PLATINUM Puppy (Mini) Chicken is currently fed',
     settingsFoodWeightFactorLabel: 'Weighting factor (%)',
     settingsFoodChip1Label: 'Quick add 1 (g)',
     settingsFoodChip2Label: 'Quick add 2 (g)',
@@ -1029,6 +1070,7 @@ const TRANSLATIONS = {
     foodMissingTargetWeight: 'Please provide target/adult weight in settings first.',
     foodUnsupportedTargetWeightYoungPackMini: 'YOUNG PACK MINI is intended for up to 15 kg target weight. Use MIDI/MAXI for higher target weights.',
     foodUnsupportedTargetWeightPlatinumPuppyChicken: 'PLATINUM Menu Puppy Chicken is intended for up to 80 kg target weight.',
+    foodUnsupportedTargetWeightPlatinumPuppyMiniChicken: 'PLATINUM Puppy (Mini) Chicken is intended for up to 80 kg target weight.',
     foodRecommendationExact: 'Recommended daily amount: {grams} g (Age: {age} months, Target weight: {targetWeight} kg).',
     foodRecommendationInterpolated: 'Recommended daily amount: {grams} g (Age: {age} months, Target weight: {targetWeight} kg; interpolated between {lowerWeight} kg and {upperWeight} kg).',
     quickAddSaved: '✓ {grams} g saved',
@@ -1141,10 +1183,10 @@ function applyStaticTranslations() {
   setText('feed-candy-share-label', t('feedCandyShareLabel'));
   setText('feed-preview-progress-label', t('feedPreviewProgressLabel'));
   setText('feed-preview-reference-label', t('feedPreviewReferenceLabel'));
-  // removed feed-preview-remaining-total-label translation binding
   setText('feed-preview-raw-label', t('feedPreviewRawLabel'));
   setText('feed-preview-remaining-young-label', t('feedPreviewRemainingYoungLabel'));
   setText('feed-preview-remaining-platinum-label', t('feedPreviewRemainingPlatinumLabel'));
+  setText('feed-preview-remaining-platinum-mini-label', t('feedPreviewRemainingPlatinumMiniLabel'));
   setText('feed-preview-legend-fed', t('feedPreviewLegendFed'));
   setText('feed-preview-legend-pending', t('feedPreviewLegendPending'));
   setText('start-walk', t('buttonStartWalk'));
@@ -1208,14 +1250,19 @@ function applyStaticTranslations() {
   setText('food-config-subtitle', t('foodConfigSubtitle'));
   setText('settings-food-young-enabled-label', t('settingsFoodYoungEnabledLabel'));
   setText('settings-food-platinum-enabled-label', t('settingsFoodPlatinumEnabledLabel'));
+  setText('settings-food-platinum-mini-enabled-label', t('settingsFoodPlatinumMiniEnabledLabel'));
   setText('settings-food-young-weight-factor-label', t('settingsFoodWeightFactorLabel'));
   setText('settings-food-platinum-weight-factor-label', t('settingsFoodWeightFactorLabel'));
+  setText('settings-food-platinum-mini-weight-factor-label', t('settingsFoodWeightFactorLabel'));
   setText('settings-food-young-chip-1-label', t('settingsFoodChip1Label'));
   setText('settings-food-young-chip-2-label', t('settingsFoodChip2Label'));
   setText('settings-food-young-chip-3-label', t('settingsFoodChip3Label'));
   setText('settings-food-platinum-chip-1-label', t('settingsFoodChip1Label'));
   setText('settings-food-platinum-chip-2-label', t('settingsFoodChip2Label'));
   setText('settings-food-platinum-chip-3-label', t('settingsFoodChip3Label'));
+  setText('settings-food-platinum-mini-chip-1-label', t('settingsFoodChip1Label'));
+  setText('settings-food-platinum-mini-chip-2-label', t('settingsFoodChip2Label'));
+  setText('settings-food-platinum-mini-chip-3-label', t('settingsFoodChip3Label'));
   setText('settings-save', t('buttonSaveSettings'));
   setText('edit-dialog-save', t('editSave'));
   setText('edit-dialog-cancel', t('editCancel'));
@@ -1242,6 +1289,11 @@ function applyStaticTranslations() {
   const foodTitle2 = document.getElementById('food-accordion-title-2');
   if (foodTitle2) {
     foodTitle2.textContent = t('foodNamePlatinumMenuPuppyChicken');
+  }
+
+  const foodTitle3 = document.getElementById('food-accordion-title-3');
+  if (foodTitle3) {
+    foodTitle3.textContent = t('foodNamePlatinumPuppyMiniChicken');
   }
 
   renderEliminationStatus();
@@ -1317,10 +1369,16 @@ function applySettingsToForm() {
   const settingsFoodPlatinumChip1 = document.getElementById('settings-food-platinum-chip-1');
   const settingsFoodPlatinumChip2 = document.getElementById('settings-food-platinum-chip-2');
   const settingsFoodPlatinumChip3 = document.getElementById('settings-food-platinum-chip-3');
+  const settingsFoodPlatinumMiniEnabled = document.getElementById('settings-food-platinum-mini-enabled');
+  const settingsFoodPlatinumMiniWeightFactor = document.getElementById('settings-food-platinum-mini-weight-factor');
+  const settingsFoodPlatinumMiniChip1 = document.getElementById('settings-food-platinum-mini-chip-1');
+  const settingsFoodPlatinumMiniChip2 = document.getElementById('settings-food-platinum-mini-chip-2');
+  const settingsFoodPlatinumMiniChip3 = document.getElementById('settings-food-platinum-mini-chip-3');
   const feedCandyShareInput = document.getElementById('feed-candy-share-percent');
 
   const youngProfile = appSettings.foodProfiles?.youngPackMini;
   const platinumProfile = appSettings.foodProfiles?.platinumMenuPuppyChicken;
+  const platinumMiniProfile = appSettings.foodProfiles?.platinumPuppyMiniChicken;
 
   if (dailyTargetInput) dailyTargetInput.value = String(appSettings.dailyTargetG);
   if (defaultPortionInput) defaultPortionInput.value = String(appSettings.defaultPortionG);
@@ -1338,6 +1396,11 @@ function applySettingsToForm() {
   if (settingsFoodPlatinumChip1) settingsFoodPlatinumChip1.value = String(platinumProfile?.quickAddValues?.[0] ?? 150);
   if (settingsFoodPlatinumChip2) settingsFoodPlatinumChip2.value = String(platinumProfile?.quickAddValues?.[1] ?? 200);
   if (settingsFoodPlatinumChip3) settingsFoodPlatinumChip3.value = String(platinumProfile?.quickAddValues?.[2] ?? 250);
+  if (settingsFoodPlatinumMiniEnabled) settingsFoodPlatinumMiniEnabled.checked = platinumMiniProfile?.enabled === true;
+  if (settingsFoodPlatinumMiniWeightFactor) settingsFoodPlatinumMiniWeightFactor.value = String(platinumMiniProfile?.weightFactorPercent ?? 100);
+  if (settingsFoodPlatinumMiniChip1) settingsFoodPlatinumMiniChip1.value = String(platinumMiniProfile?.quickAddValues?.[0] ?? 30);
+  if (settingsFoodPlatinumMiniChip2) settingsFoodPlatinumMiniChip2.value = String(platinumMiniProfile?.quickAddValues?.[1] ?? 50);
+  if (settingsFoodPlatinumMiniChip3) settingsFoodPlatinumMiniChip3.value = String(platinumMiniProfile?.quickAddValues?.[2] ?? 70);
   if (feedCandyShareInput) feedCandyShareInput.value = String(getCandySharePercent());
   initializeFeedMixAmounts();
 
@@ -2519,6 +2582,11 @@ function bindActions() {
   const settingsFoodPlatinumChip1 = document.getElementById('settings-food-platinum-chip-1');
   const settingsFoodPlatinumChip2 = document.getElementById('settings-food-platinum-chip-2');
   const settingsFoodPlatinumChip3 = document.getElementById('settings-food-platinum-chip-3');
+  const settingsFoodPlatinumMiniEnabled = document.getElementById('settings-food-platinum-mini-enabled');
+  const settingsFoodPlatinumMiniWeightFactor = document.getElementById('settings-food-platinum-mini-weight-factor');
+  const settingsFoodPlatinumMiniChip1 = document.getElementById('settings-food-platinum-mini-chip-1');
+  const settingsFoodPlatinumMiniChip2 = document.getElementById('settings-food-platinum-mini-chip-2');
+  const settingsFoodPlatinumMiniChip3 = document.getElementById('settings-food-platinum-mini-chip-3');
   const eventsList = document.getElementById('events');
   const editEventDialog = document.getElementById('edit-event-dialog');
   const editEventForm = document.getElementById('edit-event-form');
@@ -2677,8 +2745,14 @@ function bindActions() {
       Number(settingsFoodPlatinumChip2?.value ?? NaN),
       Number(settingsFoodPlatinumChip3?.value ?? NaN),
     ];
+    const nextPlatinumMiniValues = [
+      Number(settingsFoodPlatinumMiniChip1?.value ?? NaN),
+      Number(settingsFoodPlatinumMiniChip2?.value ?? NaN),
+      Number(settingsFoodPlatinumMiniChip3?.value ?? NaN),
+    ];
     const nextYoungWeightFactor = Number(settingsFoodYoungWeightFactor?.value ?? NaN);
     const nextPlatinumWeightFactor = Number(settingsFoodPlatinumWeightFactor?.value ?? NaN);
+    const nextPlatinumMiniWeightFactor = Number(settingsFoodPlatinumMiniWeightFactor?.value ?? NaN);
 
     if (!Number.isFinite(nextDailyTarget) || nextDailyTarget < 0 || !Number.isFinite(nextDefaultPortion) || nextDefaultPortion < 0) {
       if (settingsResultEl) settingsResultEl.textContent = t('settingsSaveFailed');
@@ -2705,13 +2779,21 @@ function bindActions() {
     }
 
     const isValidChipSet = (values) => values.every((value) => Number.isFinite(value) && value > 0);
-    if ((settingsFoodYoungEnabled?.checked && !isValidChipSet(nextYoungValues)) || (settingsFoodPlatinumEnabled?.checked && !isValidChipSet(nextPlatinumValues))) {
+    if (
+      (settingsFoodYoungEnabled?.checked && !isValidChipSet(nextYoungValues))
+      || (settingsFoodPlatinumEnabled?.checked && !isValidChipSet(nextPlatinumValues))
+      || (settingsFoodPlatinumMiniEnabled?.checked && !isValidChipSet(nextPlatinumMiniValues))
+    ) {
       if (settingsResultEl) settingsResultEl.textContent = t('settingsFoodChipInvalid');
       return;
     }
 
     const isValidFactor = (value) => Number.isFinite(value) && value > 0;
-    if ((settingsFoodYoungEnabled?.checked && !isValidFactor(nextYoungWeightFactor)) || (settingsFoodPlatinumEnabled?.checked && !isValidFactor(nextPlatinumWeightFactor))) {
+    if (
+      (settingsFoodYoungEnabled?.checked && !isValidFactor(nextYoungWeightFactor))
+      || (settingsFoodPlatinumEnabled?.checked && !isValidFactor(nextPlatinumWeightFactor))
+      || (settingsFoodPlatinumMiniEnabled?.checked && !isValidFactor(nextPlatinumMiniWeightFactor))
+    ) {
       if (settingsResultEl) settingsResultEl.textContent = t('settingsFoodWeightFactorInvalid');
       return;
     }
@@ -2735,6 +2817,15 @@ function bindActions() {
         quickAddValues: isValidChipSet(nextPlatinumValues)
           ? nextPlatinumValues.map((value) => Math.floor(value))
           : [...fallbackProfiles.platinumMenuPuppyChicken.quickAddValues],
+      },
+      platinumPuppyMiniChicken: {
+        enabled: settingsFoodPlatinumMiniEnabled?.checked === true,
+        weightFactorPercent: isValidFactor(nextPlatinumMiniWeightFactor)
+          ? Math.round(nextPlatinumMiniWeightFactor)
+          : (fallbackProfiles.platinumPuppyMiniChicken.weightFactorPercent ?? 100),
+        quickAddValues: isValidChipSet(nextPlatinumMiniValues)
+          ? nextPlatinumMiniValues.map((value) => Math.floor(value))
+          : [...fallbackProfiles.platinumPuppyMiniChicken.quickAddValues],
       },
     };
 
