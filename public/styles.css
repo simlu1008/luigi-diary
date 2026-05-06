@@ -584,6 +584,20 @@ h1 {
   gap: 10px;
 }
 
+.food-section {
+  display: grid;
+  gap: 8px;
+}
+
+.food-section-label {
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--text-dim, #6b7280);
+  padding: 0 2px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
 .food-mix-row {
   border: 1px solid var(--border);
   border-radius: 12px;

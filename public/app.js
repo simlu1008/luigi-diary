@@ -51,6 +51,7 @@ const FOOD_PROFILE_DEFINITIONS = {
     defaultQuickAddValues: [25, 30, 50],
     defaultWeightFactorPercent: 100,
     labelKey: 'foodNameYoungPackMini',
+    foodType: 'dry',
   },
   platinumMenuPuppyChicken: {
     key: 'platinumMenuPuppyChicken',
@@ -59,6 +60,7 @@ const FOOD_PROFILE_DEFINITIONS = {
     defaultQuickAddValues: [150, 200, 250],
     defaultWeightFactorPercent: 100,
     labelKey: 'foodNamePlatinumMenuPuppyChicken',
+    foodType: 'wet',
   },
   platinumPuppyMiniChicken: {
     key: 'platinumPuppyMiniChicken',
@@ -67,6 +69,7 @@ const FOOD_PROFILE_DEFINITIONS = {
     defaultQuickAddValues: [30, 50, 70],
     defaultWeightFactorPercent: 100,
     labelKey: 'foodNamePlatinumPuppyMiniChicken',
+    foodType: 'dry',
   },
 };
 
@@ -557,35 +560,47 @@ function renderFeedFoodOptions() {
   feedNoteInput.disabled = false;
   feedButton.disabled = false;
 
-  optionsWrap.innerHTML = activeKeys
-    .map((foodKey) => {
-      const profile = appSettings.foodProfiles?.[foodKey];
-      const quickAddValues = appSettings.quickAddEnabled ? (profile?.quickAddValues || []) : [];
-      const currentAmount = Math.max(0, Math.floor(Number(feedMixAmounts?.[foodKey] || 0)));
-      const recommendationGrams = getAdjustedFoodRecommendedDailyGrams(foodKey);
-      const chipsMarkup = quickAddValues
-        .map((grams) => `<button type="button" class="chip-btn" data-food-key="${foodKey}" data-gram="${grams}">+${grams}g</button>`)
-        .join('');
+  const renderFoodRow = (foodKey) => {
+    const profile = appSettings.foodProfiles?.[foodKey];
+    const quickAddValues = appSettings.quickAddEnabled ? (profile?.quickAddValues || []) : [];
+    const currentAmount = Math.max(0, Math.floor(Number(feedMixAmounts?.[foodKey] || 0)));
+    const recommendationGrams = getAdjustedFoodRecommendedDailyGrams(foodKey);
+    const chipsMarkup = quickAddValues
+      .map((grams) => `<button type="button" class="chip-btn" data-food-key="${foodKey}" data-gram="${grams}">+${grams}g</button>`)
+      .join('');
 
-      return `
-        <div class="food-mix-row">
-          <div class="food-mix-header">
-            <span class="food-mix-name">${getFoodDisplayName(foodKey)}</span>
-            <span class="food-mix-factor">${recommendationGrams ? t('feedRecommendedBadge', { grams: recommendationGrams }) : t('feedRecommendedUnknown')}</span>
-          </div>
-          <div class="feed-input-row">
-            <label class="feed-amount-label" for="feed-amount-${foodKey}">${t('feedAmountLabel')}</label>
-            <div class="feed-amount-field">
-              <input type="number" id="feed-amount-${foodKey}" class="feed-mix-input" data-food-key="${foodKey}" min="0" step="1" inputmode="numeric" value="${currentAmount}" />
-              <span class="feed-unit">g</span>
-            </div>
-          </div>
-          <div class="quick-add-row food-mix-chips">${chipsMarkup}</div>
+    return `
+      <div class="food-mix-row">
+        <div class="food-mix-header">
+          <span class="food-mix-name">${getFoodDisplayName(foodKey)}</span>
+          <span class="food-mix-factor">${recommendationGrams ? t('feedRecommendedBadge', { grams: recommendationGrams }) : t('feedRecommendedUnknown')}</span>
         </div>
-      `;
-    })
-    .join('');
+        <div class="feed-input-row">
+          <label class="feed-amount-label" for="feed-amount-${foodKey}">${t('feedAmountLabel')}</label>
+          <div class="feed-amount-field">
+            <input type="number" id="feed-amount-${foodKey}" class="feed-mix-input" data-food-key="${foodKey}" min="0" step="1" inputmode="numeric" value="${currentAmount}" />
+            <span class="feed-unit">g</span>
+          </div>
+        </div>
+        <div class="quick-add-row food-mix-chips">${chipsMarkup}</div>
+      </div>
+    `;
+  };
 
+  const dryFoods = activeKeys.filter((k) => FOOD_PROFILE_DEFINITIONS[k]?.foodType === 'dry');
+  const wetFoods = activeKeys.filter((k) => FOOD_PROFILE_DEFINITIONS[k]?.foodType === 'wet');
+
+  let html = '';
+
+  if (dryFoods.length) {
+    html += `<div class="food-section"><div class="food-section-label">${t('feedTypeDry')}</div>${dryFoods.map(renderFoodRow).join('')}</div>`;
+  }
+
+  if (wetFoods.length) {
+    html += `<div class="food-section"><div class="food-section-label">${t('feedTypeWet')}</div>${wetFoods.map(renderFoodRow).join('')}</div>`;
+  }
+
+  optionsWrap.innerHTML = html;
   updateFeedPreviewStatus();
 }
 
@@ -717,6 +732,8 @@ const TRANSLATIONS = {
     feedAmountLabel: 'Menge',
     feedFoodOptionsLabel: 'Futtersorten mischen',
     feedFoodOptionsEmpty: 'Aktiviere in den Einstellungen mindestens eine Futtersorte.',
+    feedTypeDry: 'Trockenfutter',
+    feedTypeWet: 'Nassfutter',
     feedCandyShareLabel: 'Candy-Anteil am Tagesbedarf',
     feedCandyShareHint: 'Candies: {candyPercent}% · normales Futter: {foodPercent}%',
     feedPreviewWithTarget: 'Nach dieser Fütterung: {projectedPercent}% ({projectedFed}/{target} g, Referenz: {referenceFood}).',
@@ -938,6 +955,8 @@ const TRANSLATIONS = {
     feedAmountLabel: 'Amount',
     feedFoodOptionsLabel: 'Mix food types',
     feedFoodOptionsEmpty: 'Enable at least one food in settings.',
+    feedTypeDry: 'Dry food',
+    feedTypeWet: 'Wet food',
     feedCandyShareLabel: 'Candy share of daily need',
     feedCandyShareHint: 'Candies: {candyPercent}% · regular food: {foodPercent}%',
     feedPreviewWithTarget: 'After this feeding: {projectedPercent}% ({projectedFed}/{target} g, reference: {referenceFood}).',
@@ -2987,7 +3006,11 @@ function bindActions() {
     try {
       await saveFeedEntry(normalizedAmountG, note);
       document.getElementById('feed-note').value = '';
-      initializeFeedMixAmounts();
+      feedMixAmounts = {};
+      Object.keys(FOOD_PROFILE_DEFINITIONS).forEach((foodKey) => {
+        const input = document.getElementById(`feed-amount-${foodKey}`);
+        if (input) input.value = '0';
+      });
       renderFeedFoodOptions();
       hideQuickAddBanner();
       await refreshAll();
