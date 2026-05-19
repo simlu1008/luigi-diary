@@ -1394,10 +1394,81 @@ function loadAppSettings() {
   } catch {
     appSettings = { ...DEFAULT_SETTINGS, foodProfiles: createDefaultFoodProfiles() };
   }
+
+  loadAppSettingsFromServer();
 }
 
 function saveAppSettings() {
   localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(appSettings));
+  syncSettingsToServer();
+}
+
+async function syncSettingsToServer() {
+  try {
+    const payload = {
+      daily_target_g: appSettings.dailyTargetG,
+      default_portion_g: appSettings.defaultPortionG,
+      quick_add_enabled: appSettings.quickAddEnabled,
+      walk_recording_enabled: appSettings.walkRecordingEnabled,
+      birth_date: appSettings.birthDate || '',
+      current_weight_kg: appSettings.currentWeightKg,
+      target_weight_kg: appSettings.targetWeightKg,
+      candy_share_percent: appSettings.candySharePercent,
+      food_profiles: appSettings.foodProfiles,
+    };
+
+    const response = await fetch('/api/settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      console.warn('Settings-Sync zum Server fehlgeschlagen:', response.status);
+    }
+  } catch (error) {
+    console.warn('Settings-Sync-Fehler:', error);
+  }
+}
+
+async function loadAppSettingsFromServer() {
+  try {
+    const response = await fetch('/api/settings');
+    if (!response.ok) {
+      console.warn('Server-Einstellungen nicht verfügbar:', response.status);
+      return false;
+    }
+
+    const serverSettings = await response.json();
+    const birthDate = typeof serverSettings.birthDate === 'string' ? serverSettings.birthDate.trim() : '';
+    const parsedWeightNumber = Number(serverSettings.currentWeightKg);
+    const currentWeightKg = Number.isFinite(parsedWeightNumber) && parsedWeightNumber > 0 ? Number(parsedWeightNumber.toFixed(1)) : null;
+    const parsedTargetWeightNumber = Number(serverSettings.targetWeightKg);
+    const targetWeightKg = Number.isFinite(parsedTargetWeightNumber) && parsedTargetWeightNumber > 0
+      ? Number(parsedTargetWeightNumber.toFixed(1))
+      : null;
+    const foodProfiles = normalizeFoodProfiles(serverSettings.foodProfiles);
+
+    appSettings = {
+      dailyTargetG: Number.isFinite(Number(serverSettings.dailyTargetG)) ? Math.max(0, Math.floor(Number(serverSettings.dailyTargetG))) : DEFAULT_SETTINGS.dailyTargetG,
+      defaultPortionG: Number.isFinite(Number(serverSettings.defaultPortionG)) ? Math.max(0, Math.floor(Number(serverSettings.defaultPortionG))) : DEFAULT_SETTINGS.defaultPortionG,
+      quickAddEnabled: serverSettings.quickAddEnabled !== false,
+      walkRecordingEnabled: serverSettings.walkRecordingEnabled !== false,
+      birthDate,
+      currentWeightKg,
+      targetWeightKg,
+      candySharePercent: sanitizeCandySharePercent(serverSettings.candySharePercent, 0),
+      foodProfiles,
+    };
+
+    localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(appSettings));
+    applySettingsToForm();
+    updateWalkRecordingUi();
+    return true;
+  } catch (error) {
+    console.warn('Fehler beim Laden von Server-Einstellungen:', error);
+    return false;
+  }
 }
 
 function applySettingsToForm() {

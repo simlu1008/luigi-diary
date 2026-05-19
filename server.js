@@ -20,6 +20,17 @@ function resolveDataFilePath() {
 }
 
 const dataFile = resolveDataFilePath();
+const settingsFile = (() => {
+  if (process.env.SETTINGS_FILE) {
+    return process.env.SETTINGS_FILE;
+  }
+  const renderVolumePath = '/data/settings.json';
+  if (fs.existsSync('/data')) {
+    return renderVolumePath;
+  }
+  return path.join(__dirname, 'data', 'settings.json');
+})();
+
 const appUsername = process.env.APP_USERNAME || '';
 const appPassword = process.env.APP_PASSWORD || '';
 const isBasicAuthEnabled = Boolean(appUsername && appPassword);
@@ -52,14 +63,36 @@ function ensureDataFile() {
   }
 }
 
+function ensureSettingsFile() {
+  const directory = path.dirname(settingsFile);
+  if (!fs.existsSync(directory)) {
+    fs.mkdirSync(directory, { recursive: true });
+  }
+
+  if (!fs.existsSync(settingsFile)) {
+    fs.writeFileSync(settingsFile, JSON.stringify({ dailyTargetG: 300, defaultPortionG: 50, quickAddEnabled: true, walkRecordingEnabled: true, birthDate: '', currentWeightKg: null, targetWeightKg: null, candySharePercent: 0, foodProfiles: {} }, null, 2));
+  }
+}
+
 function readStore() {
   ensureDataFile();
   const raw = fs.readFileSync(dataFile, 'utf8');
   return JSON.parse(raw);
 }
 
+function readSettings() {
+  ensureSettingsFile();
+  const raw = fs.readFileSync(settingsFile, 'utf8');
+  return JSON.parse(raw);
+}
+
 function writeStore(store) {
   fs.writeFileSync(dataFile, JSON.stringify(store, null, 2));
+}
+
+function writeSettings(settings) {
+  ensureSettingsFile();
+  fs.writeFileSync(settingsFile, JSON.stringify(settings, null, 2));
 }
 
 function nowIso() {
@@ -1333,6 +1366,71 @@ app.get('/api/stats/today', (_req, res) => {
     pipiCount,
     pupuCount,
   });
+});
+
+app.get('/api/settings', (_req, res) => {
+  const settings = readSettings();
+  res.json(settings);
+});
+
+app.post('/api/settings', (req, res) => {
+  if (!req.body || typeof req.body !== 'object' || Array.isArray(req.body)) {
+    return res.status(400).json({ error: 'Ungültige Einstellungen.' });
+  }
+
+  const settings = readSettings();
+
+  if (Object.prototype.hasOwnProperty.call(req.body, 'daily_target_g')) {
+    const value = req.body.daily_target_g;
+    if (Number.isFinite(value) && value >= 0) {
+      settings.dailyTargetG = Math.floor(value);
+    }
+  }
+
+  if (Object.prototype.hasOwnProperty.call(req.body, 'default_portion_g')) {
+    const value = req.body.default_portion_g;
+    if (Number.isFinite(value) && value >= 0) {
+      settings.defaultPortionG = Math.floor(value);
+    }
+  }
+
+  if (Object.prototype.hasOwnProperty.call(req.body, 'quick_add_enabled')) {
+    settings.quickAddEnabled = req.body.quick_add_enabled === true;
+  }
+
+  if (Object.prototype.hasOwnProperty.call(req.body, 'walk_recording_enabled')) {
+    settings.walkRecordingEnabled = req.body.walk_recording_enabled === true;
+  }
+
+  if (Object.prototype.hasOwnProperty.call(req.body, 'birth_date')) {
+    const value = req.body.birth_date;
+    settings.birthDate = typeof value === 'string' ? value : '';
+  }
+
+  if (Object.prototype.hasOwnProperty.call(req.body, 'current_weight_kg')) {
+    const value = req.body.current_weight_kg;
+    settings.currentWeightKg = (typeof value === 'number' && value > 0) ? value : null;
+  }
+
+  if (Object.prototype.hasOwnProperty.call(req.body, 'target_weight_kg')) {
+    const value = req.body.target_weight_kg;
+    settings.targetWeightKg = (typeof value === 'number' && value > 0) ? value : null;
+  }
+
+  if (Object.prototype.hasOwnProperty.call(req.body, 'candy_share_percent')) {
+    const value = req.body.candy_share_percent;
+    if (Number.isFinite(value)) {
+      const clamped = Math.max(0, Math.min(100, Math.floor(value)));
+      settings.candySharePercent = clamped;
+    }
+  }
+
+  if (Object.prototype.hasOwnProperty.call(req.body, 'food_profiles') && typeof req.body.food_profiles === 'object') {
+    settings.foodProfiles = req.body.food_profiles;
+  }
+
+  writeSettings(settings);
+  return res.json(settings);
 });
 
 app.get('*', (_req, res) => {
