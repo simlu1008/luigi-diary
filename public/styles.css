@@ -400,6 +400,29 @@ h1 {
   padding: 10px;
 }
 
+.session-block .elimination-btn {
+  min-height: 48px;
+  font-weight: 700;
+  font-size: 15px;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+}
+
+.session-block .elimination-btn-pipi {
+  background: linear-gradient(180deg, #dbeafe 0%, #bfdbfe 100%);
+  border-color: #60a5fa;
+  color: #1d4ed8;
+}
+
+.session-block .elimination-btn-pupu {
+  background: linear-gradient(180deg, #fae8ff 0%, #f3e8ff 100%);
+  border-color: #c084fc;
+  color: #7c3aed;
+}
+
+.session-block .elimination-btn:active {
+  transform: translateY(1px);
+}
+
 .feed-block {
   display: grid;
   gap: 8px;
