@@ -1548,11 +1548,17 @@ function updateWalkRecordingUi() {
   const walkControls = document.getElementById('walk-controls');
   const eliminationControls = document.getElementById('elimination-controls');
   const walkRecordingOffHint = document.getElementById('walk-recording-off-hint');
+  const walkStatusEl = document.getElementById('walk-status');
+  const sleepStatusEl = document.getElementById('sleep-status');
+  const aloneStatusEl = document.getElementById('alone-status');
   const walkRecordingEnabled = getWalkRecordingEnabled();
 
   if (walkControls) walkControls.hidden = !walkRecordingEnabled;
   if (eliminationControls) eliminationControls.hidden = walkRecordingEnabled;
   if (walkRecordingOffHint) walkRecordingOffHint.hidden = walkRecordingEnabled;
+  if (walkStatusEl) walkStatusEl.hidden = !walkRecordingEnabled;
+  if (sleepStatusEl) sleepStatusEl.hidden = !walkRecordingEnabled;
+  if (aloneStatusEl) aloneStatusEl.hidden = !walkRecordingEnabled;
 }
 
 function toLocalDateInputValue(date) {
