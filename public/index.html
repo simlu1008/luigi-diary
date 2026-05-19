@@ -46,13 +46,19 @@
 
       <section class="card actions" data-tab="today">
         <h2 id="heading-actions">Aktionen</h2>
-        <div class="end-walk-block">
+        <div id="walk-controls" class="end-walk-block">
           <button id="start-walk" class="btn btn-primary">🚶 Spaziergang starten</button>
           <label><input type="checkbox" id="pipi" /> <span id="label-pipi">Pipi gemacht</span></label>
           <label><input type="checkbox" id="pupu" /> <span id="label-pupu">Pupu gemacht</span></label>
           <input type="text" id="walk-note" placeholder="Notiz (optional)" />
           <button id="end-walk" class="btn btn-warning">✅ Spaziergang beenden</button>
         </div>
+
+        <div id="elimination-controls" class="session-block" hidden>
+          <button id="track-pipi" class="btn btn-primary">💧 Pipi</button>
+          <button id="track-pupu" class="btn btn-secondary">💩 Poop</button>
+        </div>
+        <p id="walk-recording-off-hint" class="timeline-subtitle" hidden>Wenn die Gassi-Aufzeichnung aus ist, kannst du Pipi und Pupu direkt erfassen.</p>
 
         <div class="session-block">
           <button id="start-sleep" class="btn btn-secondary">🌙 Schlafen gestartet</button>
@@ -355,6 +361,10 @@
           <label class="settings-toggle">
             <input id="settings-enable-quick-add" type="checkbox" />
             <span id="settings-enable-quick-add-label">Quick-Add Chips aktivieren (25g / 30g / 50g)</span>
+          </label>
+          <label class="settings-toggle">
+            <input id="settings-enable-walk-recording" type="checkbox" />
+            <span id="settings-enable-walk-recording-label">Gassi-Aufzeichnung aktivieren</span>
           </label>
         </div>
         <button id="settings-save" class="btn btn-primary">💾 Einstellungen speichern</button>

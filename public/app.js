@@ -652,6 +652,7 @@ const DEFAULT_SETTINGS = {
   dailyTargetG: 300,
   defaultPortionG: 50,
   quickAddEnabled: true,
+  walkRecordingEnabled: true,
   birthDate: '',
   currentWeightKg: null,
   targetWeightKg: null,
@@ -754,6 +755,8 @@ const TRANSLATIONS = {
     sleepNotePlaceholder: 'Schlaf-Notiz (optional)',
     buttonStartWalk: '🚶 Spaziergang starten',
     buttonEndWalk: '✅ Spaziergang beenden',
+    buttonTrackPipi: '💧 Pipi',
+    buttonTrackPupu: '💩 Poop',
     buttonFeed: '🍽️ Gefüttert',
     buttonStartSleep: '🌙 Schlafen gestartet',
     buttonEndSleep: '⏰ Aufgestanden',
@@ -856,6 +859,7 @@ const TRANSLATIONS = {
     settingsWeightLabel: 'Aktuelles Gewicht (kg)',
     settingsTargetWeightLabel: 'Zielgewicht / Endgewicht (kg)',
     settingsQuickAddLabel: 'Quick-Add Chips aktivieren (25g / 30g / 50g)',
+    settingsWalkRecordingLabel: 'Gassi-Aufzeichnung aktivieren',
     foodConfigSubtitle: 'Aktiviere Futtersorten und definiere je Sorte drei Quick-Add-Werte.',
     foodNameYoungPackMini: 'YOUNG PACK MINI (vet-concept)',
     foodNamePlatinumMenuPuppyChicken: 'PLATINUM Menu Puppy Chicken',
@@ -952,6 +956,7 @@ const TRANSLATIONS = {
     labelPupu: 'Poop done',
     walkNotePlaceholder: 'Note (optional)',
     feedNotePlaceholder: 'Feeding note (optional)',
+    walkRecordingOffHint: 'Wenn die Gassi-Aufzeichnung aus ist, kannst du Pipi und Pupu direkt erfassen.',
     feedAmountLabel: 'Amount',
     feedFoodOptionsLabel: 'Mix food types',
     feedFoodOptionsEmpty: 'Enable at least one food in settings.',
@@ -1079,6 +1084,7 @@ const TRANSLATIONS = {
     settingsWeightLabel: 'Current weight (kg)',
     settingsTargetWeightLabel: 'Target/adult weight (kg)',
     settingsQuickAddLabel: 'Enable quick-add chips (25g / 30g / 50g)',
+    settingsWalkRecordingLabel: 'Enable walk recording',
     foodConfigSubtitle: 'Enable food types and define three quick-add values per type.',
     foodNameYoungPackMini: 'YOUNG PACK MINI (vet-concept)',
     foodNamePlatinumMenuPuppyChicken: 'PLATINUM Menu Puppy Chicken',
@@ -1091,6 +1097,8 @@ const TRANSLATIONS = {
     settingsFoodChip2Label: 'Quick add 2 (g)',
     settingsFoodChip3Label: 'Quick add 3 (g)',
     buttonSaveSettings: '💾 Save settings',
+    buttonTrackPipi: '💧 Pee',
+    buttonTrackPupu: '💩 Poop',
     settingsSaved: 'Settings saved.',
     settingsSaveFailed: 'Please enter valid values.',
     settingsBirthDateInvalid: 'Please enter a valid birth date (not in the future).',
@@ -1105,6 +1113,7 @@ const TRANSLATIONS = {
     foodUnsupportedTargetWeightYoungPackMini: 'YOUNG PACK MINI is intended for up to 15 kg target weight. Use MIDI/MAXI for higher target weights.',
     foodUnsupportedTargetWeightPlatinumPuppyChicken: 'PLATINUM Menu Puppy Chicken is intended for up to 80 kg target weight.',
     foodUnsupportedTargetWeightPlatinumPuppyMiniChicken: 'PLATINUM Puppy (Mini) Chicken is intended for up to 80 kg target weight.',
+    walkRecordingOffHint: 'When walk recording is off, you can record pee and poop directly.',
     foodRecommendationExact: 'Recommended daily amount: {grams} g (Age: {age} months, Target weight: {targetWeight} kg).',
     foodRecommendationInterpolated: 'Recommended daily amount: {grams} g (Age: {age} months, Target weight: {targetWeight} kg; interpolated between {lowerWeight} kg and {upperWeight} kg).',
     quickAddSaved: '✓ {grams} g saved',
@@ -1281,6 +1290,7 @@ function applyStaticTranslations() {
   setText('settings-weight-label', t('settingsWeightLabel'));
   setText('settings-target-weight-label', t('settingsTargetWeightLabel'));
   setText('settings-enable-quick-add-label', t('settingsQuickAddLabel'));
+  setText('settings-enable-walk-recording-label', t('settingsWalkRecordingLabel'));
   setText('food-config-subtitle', t('foodConfigSubtitle'));
   setText('settings-food-young-enabled-label', t('settingsFoodYoungEnabledLabel'));
   setText('settings-food-platinum-enabled-label', t('settingsFoodPlatinumEnabledLabel'));
@@ -1298,6 +1308,9 @@ function applyStaticTranslations() {
   setText('settings-food-platinum-mini-chip-2-label', t('settingsFoodChip2Label'));
   setText('settings-food-platinum-mini-chip-3-label', t('settingsFoodChip3Label'));
   setText('settings-save', t('buttonSaveSettings'));
+  setText('track-pipi', t('buttonTrackPipi'));
+  setText('track-pupu', t('buttonTrackPupu'));
+  setText('walk-recording-off-hint', t('walkRecordingOffHint'));
   setText('edit-dialog-save', t('editSave'));
   setText('edit-dialog-cancel', t('editCancel'));
 
@@ -1371,6 +1384,7 @@ function loadAppSettings() {
       dailyTargetG: Number.isFinite(Number(parsed?.dailyTargetG)) ? Math.max(0, Math.floor(Number(parsed.dailyTargetG))) : DEFAULT_SETTINGS.dailyTargetG,
       defaultPortionG: Number.isFinite(Number(parsed?.defaultPortionG)) ? Math.max(0, Math.floor(Number(parsed.defaultPortionG))) : DEFAULT_SETTINGS.defaultPortionG,
       quickAddEnabled: parsed?.quickAddEnabled !== false,
+      walkRecordingEnabled: parsed?.walkRecordingEnabled !== false,
       birthDate,
       currentWeightKg,
       targetWeightKg,
@@ -1393,6 +1407,7 @@ function applySettingsToForm() {
   const weightInput = document.getElementById('settings-weight-kg');
   const targetWeightInput = document.getElementById('settings-target-weight-kg');
   const quickAddToggle = document.getElementById('settings-enable-quick-add');
+  const walkRecordingToggle = document.getElementById('settings-enable-walk-recording');
   const settingsFoodYoungEnabled = document.getElementById('settings-food-young-enabled');
   const settingsFoodYoungWeightFactor = document.getElementById('settings-food-young-weight-factor');
   const settingsFoodYoungChip1 = document.getElementById('settings-food-young-chip-1');
@@ -1420,6 +1435,7 @@ function applySettingsToForm() {
   if (weightInput) weightInput.value = appSettings.currentWeightKg === null ? '' : String(appSettings.currentWeightKg);
   if (targetWeightInput) targetWeightInput.value = appSettings.targetWeightKg === null ? '' : String(appSettings.targetWeightKg);
   if (quickAddToggle) quickAddToggle.checked = appSettings.quickAddEnabled;
+  if (walkRecordingToggle) walkRecordingToggle.checked = appSettings.walkRecordingEnabled !== false;
   if (settingsFoodYoungEnabled) settingsFoodYoungEnabled.checked = youngProfile?.enabled === true;
   if (settingsFoodYoungWeightFactor) settingsFoodYoungWeightFactor.value = String(youngProfile?.weightFactorPercent ?? 100);
   if (settingsFoodYoungChip1) settingsFoodYoungChip1.value = String(youngProfile?.quickAddValues?.[0] ?? 25);
@@ -1439,6 +1455,7 @@ function applySettingsToForm() {
   initializeFeedMixAmounts();
 
   applyQuickAddVisibility();
+  updateWalkRecordingUi();
   renderFeedOpenStatus();
   updateFoodRecommendationUi();
   renderFeedFoodOptions();
@@ -1446,6 +1463,25 @@ function applySettingsToForm() {
 
 function applyQuickAddVisibility() {
   renderFeedFoodOptions();
+}
+
+function getWalkRecordingEnabled() {
+  const walkRecordingToggle = document.getElementById('settings-enable-walk-recording');
+  if (walkRecordingToggle) {
+    return walkRecordingToggle.checked === true;
+  }
+  return appSettings.walkRecordingEnabled !== false;
+}
+
+function updateWalkRecordingUi() {
+  const walkControls = document.getElementById('walk-controls');
+  const eliminationControls = document.getElementById('elimination-controls');
+  const walkRecordingOffHint = document.getElementById('walk-recording-off-hint');
+  const walkRecordingEnabled = getWalkRecordingEnabled();
+
+  if (walkControls) walkControls.hidden = !walkRecordingEnabled;
+  if (eliminationControls) eliminationControls.hidden = walkRecordingEnabled;
+  if (walkRecordingOffHint) walkRecordingOffHint.hidden = walkRecordingEnabled;
 }
 
 function toLocalDateInputValue(date) {
@@ -1712,6 +1748,28 @@ async function saveFeedEntry(amountG, note = '') {
     body: JSON.stringify({ note, amount_g: normalizedAmountG }),
   });
   return { id: result.id, amountG: normalizedAmountG };
+}
+
+async function saveStandaloneElimination(kind) {
+  const now = new Date().toISOString();
+  const payload = {
+    type: 'walk',
+    created_at: now,
+    walk_start: now,
+    walk_end: now,
+    duration_min: 0,
+    note: '',
+    pipi: kind === 'pipi',
+    pupu: kind === 'pupu',
+    pipi_at: kind === 'pipi' ? now : null,
+    pupu_at: kind === 'pupu' ? now : null,
+  };
+
+  const result = await api('/api/manual/event', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+  return result;
 }
 
 function renderCurrentAloneStatus() {
@@ -2629,6 +2687,7 @@ function bindActions() {
   const settingsWeightInput = document.getElementById('settings-weight-kg');
   const settingsTargetWeightInput = document.getElementById('settings-target-weight-kg');
   const settingsQuickAddToggle = document.getElementById('settings-enable-quick-add');
+  const settingsWalkRecordingToggle = document.getElementById('settings-enable-walk-recording');
   const settingsFoodYoungEnabled = document.getElementById('settings-food-young-enabled');
   const settingsFoodYoungWeightFactor = document.getElementById('settings-food-young-weight-factor');
   const settingsFoodYoungChip1 = document.getElementById('settings-food-young-chip-1');
@@ -2838,6 +2897,7 @@ function bindActions() {
     const nextYoungWeightFactor = Number(settingsFoodYoungWeightFactor?.value ?? NaN);
     const nextPlatinumWeightFactor = Number(settingsFoodPlatinumWeightFactor?.value ?? NaN);
     const nextPlatinumMiniWeightFactor = Number(settingsFoodPlatinumMiniWeightFactor?.value ?? NaN);
+    const nextWalkRecordingEnabled = settingsWalkRecordingToggle?.checked !== false;
 
     if (!Number.isFinite(nextDailyTarget) || nextDailyTarget < 0 || !Number.isFinite(nextDefaultPortion) || nextDefaultPortion < 0) {
       if (settingsResultEl) settingsResultEl.textContent = t('settingsSaveFailed');
@@ -2918,6 +2978,7 @@ function bindActions() {
       dailyTargetG: Math.floor(nextDailyTarget),
       defaultPortionG: Math.floor(nextDefaultPortion),
       quickAddEnabled: settingsQuickAddToggle?.checked !== false,
+      walkRecordingEnabled: nextWalkRecordingEnabled,
       birthDate: nextBirthDate,
       currentWeightKg: nextWeight === null ? null : Number(nextWeight.toFixed(1)),
       targetWeightKg: nextTargetWeight === null ? null : Number(nextTargetWeight.toFixed(1)),
@@ -2928,6 +2989,10 @@ function bindActions() {
     saveAppSettings();
     applySettingsToForm();
     if (settingsResultEl) settingsResultEl.textContent = t('settingsSaved');
+  });
+
+  settingsWalkRecordingToggle?.addEventListener('change', () => {
+    updateWalkRecordingUi();
   });
 
   settingsFoodYoungEnabled?.addEventListener('change', () => {
@@ -2960,6 +3025,24 @@ function bindActions() {
       pupuCheckbox.checked = false;
       currentWalkPipiAt = null;
       currentWalkPupuAt = null;
+      await refreshAll();
+    } catch (error) {
+      alert(translateServerError(error.message));
+    }
+  });
+
+  document.getElementById('track-pipi')?.addEventListener('click', async () => {
+    try {
+      await saveStandaloneElimination('pipi');
+      await refreshAll();
+    } catch (error) {
+      alert(translateServerError(error.message));
+    }
+  });
+
+  document.getElementById('track-pupu')?.addEventListener('click', async () => {
+    try {
+      await saveStandaloneElimination('pupu');
       await refreshAll();
     } catch (error) {
       alert(translateServerError(error.message));
