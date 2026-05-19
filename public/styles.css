@@ -97,6 +97,10 @@ h1 {
   display: none;
 }
 
+[hidden] {
+  display: none !important;
+}
+
 .undo-banner-button {
   margin-left: auto;
   border: none;
