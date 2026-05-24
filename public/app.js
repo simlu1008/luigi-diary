@@ -2764,10 +2764,11 @@ async function downloadWithFeedback(url, statusElementId, fallbackFileName) {
 }
 
 function toIsoFromLocalInput(value) {
-  if (!value) return null;
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return null;
-  return parsed.toISOString();
+  // Convert a `datetime-local` input value (YYYY-MM-DDTHH:MM[:SS])
+  // to an ISO timestamp representing that local time in UTC.
+  // This is used in the manual form to ensure dates entered locally
+  // are not subject to timezone offset shifts.
+  return localInputToIso(value);
 }
 
 function clearManualFieldErrors() {
