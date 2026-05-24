@@ -2861,6 +2861,7 @@ async function submitManualEvent() {
     payload.walk_end = end;
     payload.pipi = pipi;
     payload.pupu = pupu;
+    payload.walk_recording_enabled = true;
   }
 
   if (type === 'sleep') {
