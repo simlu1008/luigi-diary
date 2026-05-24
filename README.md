@@ -26,6 +26,8 @@ Einfache, mobile Web-App zum Tracken von:
 - Alle Events werden fortlaufend in `data/events.json` gespeichert.
 - Es gibt keine automatische Löschung/Rotation historischer Daten in der App.
 - Für große Datenmengen kann später auf eine Datenbank migriert werden, das Format bleibt exportierbar.
+- Die App speichert zusätzlich die Einstellungen in `settings.json`.
+- Beim Deploy bleiben Daten nur erhalten, wenn der Speicherpfad auf ein persistentes Volume zeigt, z. B. `/data`.
 
 ## Datenexport
 
@@ -178,6 +180,8 @@ Schritte:
 4. Deploy starten
 
 Wichtig: Für dauerhafte Speicherung muss ein Persistent Volume gemountet sein (bei dir: `/data`). Dann bleiben Einträge auch nach Deployments erhalten.
+
+Das gilt auch für die Einstellungen: `settings.json` wird ebenfalls unter `/data` abgelegt, wenn das Volume vorhanden ist.
 
 Empfohlene Einstellung:
 
