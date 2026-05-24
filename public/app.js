@@ -677,6 +677,8 @@ let quickAddUndoEventId = null;
 let recentEventsCache = [];
 let editFeedbackTimeoutId = null;
 let feedMixAmounts = {};
+let settingsSyncIntervalId = null;
+let lastSyncedSettingsSignature = '';
 
 const TRANSLATIONS = {
   de: {
@@ -830,6 +832,8 @@ const TRANSLATIONS = {
     eventSleep: '😴 Schlaf · {start} bis {end} · {hours} h{note}',
     eventAlone: '🏠 Alleine · {start} bis {end} · {hours} h{note}',
     eventWalk: '🚶 Spaziergang · {start} · {minutes} min · {pipi}, {pupu}{note}',
+    eventEliminationEntry: '💧 {items} · {time}{note}',
+    eventEliminationFallback: 'Pipi/Pupu',
     notePrefix: ' · {note}',
     pipiYes: 'Pipi',
     pipiNo: 'kein Pipi',
@@ -1055,6 +1059,8 @@ const TRANSLATIONS = {
     eventSleep: '😴 Sleep · {start} to {end} · {hours} h{note}',
     eventAlone: '🏠 Alone · {start} to {end} · {hours} h{note}',
     eventWalk: '🚶 Walk · {start} · {minutes} min · {pipi}, {pupu}{note}',
+    eventEliminationEntry: '💧 {items} · {time}{note}',
+    eventEliminationFallback: 'Pee/Poop',
     notePrefix: ' · {note}',
     pipiYes: 'pee',
     pipiNo: 'no pee',
@@ -1395,12 +1401,34 @@ function loadAppSettings() {
     appSettings = { ...DEFAULT_SETTINGS, foodProfiles: createDefaultFoodProfiles() };
   }
 
+  lastSyncedSettingsSignature = createSettingsSignature(appSettings);
+
   loadAppSettingsFromServer();
 }
 
 function saveAppSettings() {
   localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(appSettings));
+  lastSyncedSettingsSignature = createSettingsSignature(appSettings);
   syncSettingsToServer();
+}
+
+function createSettingsSignature(settings) {
+  const normalizedFoodProfiles = normalizeFoodProfiles(settings?.foodProfiles);
+  return JSON.stringify({
+    dailyTargetG: Number.isFinite(Number(settings?.dailyTargetG)) ? Math.max(0, Math.floor(Number(settings.dailyTargetG))) : DEFAULT_SETTINGS.dailyTargetG,
+    defaultPortionG: Number.isFinite(Number(settings?.defaultPortionG)) ? Math.max(0, Math.floor(Number(settings.defaultPortionG))) : DEFAULT_SETTINGS.defaultPortionG,
+    quickAddEnabled: settings?.quickAddEnabled !== false,
+    walkRecordingEnabled: settings?.walkRecordingEnabled !== false,
+    birthDate: typeof settings?.birthDate === 'string' ? settings.birthDate.trim() : '',
+    currentWeightKg: Number.isFinite(Number(settings?.currentWeightKg)) && Number(settings.currentWeightKg) > 0
+      ? Number(Number(settings.currentWeightKg).toFixed(1))
+      : null,
+    targetWeightKg: Number.isFinite(Number(settings?.targetWeightKg)) && Number(settings.targetWeightKg) > 0
+      ? Number(Number(settings.targetWeightKg).toFixed(1))
+      : null,
+    candySharePercent: sanitizeCandySharePercent(settings?.candySharePercent, 0),
+    foodProfiles: normalizedFoodProfiles,
+  });
 }
 
 async function syncSettingsToServer() {
@@ -1431,7 +1459,7 @@ async function syncSettingsToServer() {
   }
 }
 
-async function loadAppSettingsFromServer() {
+async function loadAppSettingsFromServer({ updateForm = true } = {}) {
   try {
     const response = await fetch('/api/settings');
     if (!response.ok) {
@@ -1448,8 +1476,7 @@ async function loadAppSettingsFromServer() {
       ? Number(parsedTargetWeightNumber.toFixed(1))
       : null;
     const foodProfiles = normalizeFoodProfiles(serverSettings.foodProfiles);
-
-    appSettings = {
+    const nextSettings = {
       dailyTargetG: Number.isFinite(Number(serverSettings.dailyTargetG)) ? Math.max(0, Math.floor(Number(serverSettings.dailyTargetG))) : DEFAULT_SETTINGS.dailyTargetG,
       defaultPortionG: Number.isFinite(Number(serverSettings.defaultPortionG)) ? Math.max(0, Math.floor(Number(serverSettings.defaultPortionG))) : DEFAULT_SETTINGS.defaultPortionG,
       quickAddEnabled: serverSettings.quickAddEnabled !== false,
@@ -1460,15 +1487,41 @@ async function loadAppSettingsFromServer() {
       candySharePercent: sanitizeCandySharePercent(serverSettings.candySharePercent, 0),
       foodProfiles,
     };
+    const nextSignature = createSettingsSignature(nextSettings);
+
+    if (nextSignature === lastSyncedSettingsSignature) {
+      return false;
+    }
+
+    appSettings = nextSettings;
 
     localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(appSettings));
-    applySettingsToForm();
+    lastSyncedSettingsSignature = nextSignature;
+    if (updateForm) {
+      applySettingsToForm();
+    }
+    renderFeedFoodOptions();
     updateWalkRecordingUi();
+    renderFeedOpenStatus();
     return true;
   } catch (error) {
     console.warn('Fehler beim Laden von Server-Einstellungen:', error);
     return false;
   }
+}
+
+function startSettingsSyncTicker() {
+  if (settingsSyncIntervalId) return;
+
+  const syncIfVisible = () => {
+    if (document.visibilityState !== 'visible') return;
+    if (currentTab === 'settings') return;
+    loadAppSettingsFromServer({ updateForm: true });
+  };
+
+  document.addEventListener('visibilitychange', syncIfVisible);
+  window.addEventListener('focus', syncIfVisible);
+  settingsSyncIntervalId = window.setInterval(syncIfVisible, 30000);
 }
 
 function applySettingsToForm() {
@@ -1681,7 +1734,9 @@ function extractLastEliminationTimestamp(events, fieldName, fallbackFieldName) {
 
   for (const event of events) {
     if (event.type !== 'walk' || event[fieldName] !== true) continue;
-    const eventTimeRaw = event[`${fieldName}_at`] || event[fallbackFieldName] || event.created_at;
+    const eventTimeRaw = isWalkRecordingDisabledEvent(event)
+      ? event.created_at
+      : event[`${fieldName}_at`] || event[fallbackFieldName] || event.created_at;
     const eventTime = parseTimestamp(eventTimeRaw);
     if (!eventTime) continue;
 
@@ -1832,14 +1887,10 @@ async function saveStandaloneElimination(kind) {
   const payload = {
     type: 'walk',
     created_at: now,
-    walk_start: now,
-    walk_end: now,
-    duration_min: 0,
+    walk_recording_enabled: false,
     note: '',
     pipi: kind === 'pipi',
     pupu: kind === 'pupu',
-    pipi_at: kind === 'pipi' ? now : null,
-    pupu_at: kind === 'pupu' ? now : null,
   };
 
   const result = await api('/api/manual/event', {
@@ -1859,6 +1910,21 @@ function renderCurrentAloneStatus() {
   }
 
   aloneStatusEl.textContent = t('statusOpenAlone', { since: formatElapsedSince(currentAloneStartedAt) });
+}
+
+function isWalkRecordingDisabledEvent(event) {
+  return event?.type === 'walk' && event.walk_recording_enabled === false;
+}
+
+function sortEventsForDisplay(events) {
+  return [...events].sort((left, right) => {
+    const leftTime = new Date(left.created_at || 0).getTime();
+    const rightTime = new Date(right.created_at || 0).getTime();
+    if (leftTime !== rightTime) {
+      return rightTime - leftTime;
+    }
+    return Number(right.id || 0) - Number(left.id || 0);
+  });
 }
 
 function startEliminationStatusTicker() {
@@ -1905,6 +1971,15 @@ function eventLabel(event) {
     });
   }
 
+  if (isWalkRecordingDisabledEvent(event)) {
+    const items = [event.pipi ? t('pipiYes') : null, event.pupu ? t('pupuYes') : null].filter(Boolean);
+    return t('eventEliminationEntry', {
+      items: items.length > 0 ? items.join(', ') : t('eventEliminationFallback'),
+      time: formatDateTime(event.created_at),
+      note,
+    });
+  }
+
   const pipi = event.pipi ? t('pipiYes') : t('pipiNo');
   const pupu = event.pupu ? t('pupuYes') : t('pupuNo');
   const duration = event.duration_min ?? 0;
@@ -1935,6 +2010,14 @@ function setEditDialogFieldVisibility(type) {
       group.hidden = false;
     });
   }
+
+  const walkRecordingEnabled = document.getElementById('edit-walk-recording-enabled')?.value !== 'false';
+  if (type === 'walk' && !walkRecordingEnabled) {
+    const walkStartGroup = document.getElementById('edit-walk-start')?.closest('label');
+    const walkEndGroup = document.getElementById('edit-walk-end')?.closest('label');
+    if (walkStartGroup) walkStartGroup.hidden = true;
+    if (walkEndGroup) walkEndGroup.hidden = true;
+  }
 }
 
 function closeEditDialog() {
@@ -1961,6 +2044,7 @@ function openEditDialog(event) {
 
   document.getElementById('edit-event-id').value = String(event.id);
   document.getElementById('edit-event-type').value = event.type;
+  document.getElementById('edit-walk-recording-enabled').value = event.walk_recording_enabled === false ? 'false' : 'true';
   document.getElementById('edit-inline-error').textContent = '';
   document.getElementById('edit-created-at').value = formatDateTimeForInput(event.created_at);
   document.getElementById('edit-amount-g').value = event.feed_amount_g ?? '';
@@ -1985,6 +2069,7 @@ function openEditDialog(event) {
 
 function buildEditPayload() {
   const eventType = document.getElementById('edit-event-type').value;
+  const walkRecordingEnabled = document.getElementById('edit-walk-recording-enabled').value !== 'false';
   const payload = {
     note: document.getElementById('edit-note').value.trim(),
   };
@@ -1999,12 +2084,15 @@ function buildEditPayload() {
   }
 
   if (eventType === 'walk') {
-    const walkStartValue = document.getElementById('edit-walk-start').value.trim();
-    const walkEndValue = document.getElementById('edit-walk-end').value.trim();
-    if (walkStartValue) payload.walk_start = walkStartValue;
-    if (walkEndValue) payload.walk_end = walkEndValue;
     payload.pipi = document.getElementById('edit-pipi').checked;
     payload.pupu = document.getElementById('edit-pupu').checked;
+    payload.walk_recording_enabled = walkRecordingEnabled;
+    if (walkRecordingEnabled) {
+      const walkStartValue = document.getElementById('edit-walk-start').value.trim();
+      const walkEndValue = document.getElementById('edit-walk-end').value.trim();
+      if (walkStartValue) payload.walk_start = walkStartValue;
+      if (walkEndValue) payload.walk_end = walkEndValue;
+    }
     return payload;
   }
 
@@ -2083,6 +2171,11 @@ function createSleepSegment(startMinute, endMinute, title) {
 }
 
 function getEventInterval(event, now) {
+  if (isWalkRecordingDisabledEvent(event)) {
+    const createdAt = parseTimestamp(event.created_at);
+    return { start: createdAt, end: createdAt };
+  }
+
   if (event.type === 'walk') {
     return {
       start: parseTimestamp(event.walk_start),
@@ -2102,6 +2195,11 @@ function getEventInterval(event, now) {
 
 function eventTouchesDay(event, dayStart, dayEnd, now) {
   if (event.type === 'feed') {
+    const createdAt = parseTimestamp(event.created_at);
+    return Boolean(createdAt && createdAt >= dayStart && createdAt < dayEnd);
+  }
+
+  if (isWalkRecordingDisabledEvent(event)) {
     const createdAt = parseTimestamp(event.created_at);
     return Boolean(createdAt && createdAt >= dayStart && createdAt < dayEnd);
   }
@@ -2137,7 +2235,7 @@ function renderTimelineIntoTrack(track, events, dayStart, options = {}) {
   const dayEvents = events.filter((event) => eventTouchesDay(event, dayStart, dayEnd, now));
 
   for (const event of dayEvents) {
-    if (event.type === 'walk') {
+    if (event.type === 'walk' && !isWalkRecordingDisabledEvent(event)) {
       const interval = getEventInterval(event, now);
       const walkStart = interval.start;
       const walkEnd = interval.end;
@@ -2183,6 +2281,31 @@ function renderTimelineIntoTrack(track, events, dayStart, options = {}) {
             minute: pupuMinute,
             cssClass: 'timeline-pupu',
             title: t('markerPupu', { time: formatDateTime(pupuAtRaw) }),
+          })
+        );
+      }
+    }
+
+    if (isWalkRecordingDisabledEvent(event)) {
+      const createdAt = parseTimestamp(event.created_at);
+      if (!createdAt) continue;
+
+      if (event.pipi) {
+        track.appendChild(
+          createTimelineMarker({
+            minute: minuteOfDay(createdAt),
+            cssClass: 'timeline-pipi',
+            title: t('markerPipi', { time: formatDateTime(event.created_at) }),
+          })
+        );
+      }
+
+      if (event.pupu) {
+        track.appendChild(
+          createTimelineMarker({
+            minute: minuteOfDay(createdAt),
+            cssClass: 'timeline-pupu',
+            title: t('markerPupu', { time: formatDateTime(event.created_at) }),
           })
         );
       }
@@ -2267,7 +2390,8 @@ function renderRangeTrends(events, rangeDays) {
   const rangeEnd = new Date(todayStart.getTime() + MINUTES_PER_DAY * 60000);
 
   const rangeEvents = events.filter((event) => eventTouchesDay(event, rangeStart, rangeEnd, now));
-  const walks = rangeEvents.filter((event) => event.type === 'walk');
+  const walks = rangeEvents.filter((event) => event.type === 'walk' && !isWalkRecordingDisabledEvent(event));
+  const eliminationOnlyEvents = rangeEvents.filter(isWalkRecordingDisabledEvent);
   const feeds = rangeEvents.filter((event) => event.type === 'feed');
   const sleeps = rangeEvents.filter((event) => event.type === 'sleep');
 
@@ -2280,13 +2404,17 @@ function renderRangeTrends(events, rangeDays) {
     const dayEnd = new Date(dayStart.getTime() + MINUTES_PER_DAY * 60000);
     const dayWalkMinutes = walks.reduce((sum, event) => sum + intervalMinutesWithinDay(event, dayStart, dayEnd, now), 0);
     const daySleepMinutes = sleeps.reduce((sum, event) => sum + intervalMinutesWithinDay(event, dayStart, dayEnd, now), 0);
+    const dayEliminations = eliminationOnlyEvents.filter((event) => {
+      const createdAt = parseTimestamp(event.created_at);
+      return Boolean(createdAt && createdAt >= dayStart && createdAt < dayEnd);
+    });
     const dayFeeds = feeds.filter((event) => {
       const createdAt = parseTimestamp(event.created_at);
       return Boolean(createdAt && createdAt >= dayStart && createdAt < dayEnd);
     }).length;
     totalWalkMinutes += dayWalkMinutes;
     totalSleepMinutes += daySleepMinutes;
-    if (dayWalkMinutes > 0 || daySleepMinutes > 0 || dayFeeds > 0) {
+    if (dayWalkMinutes > 0 || daySleepMinutes > 0 || dayFeeds > 0 || dayEliminations.length > 0) {
       activeDays += 1;
     }
   }
@@ -2328,7 +2456,7 @@ function renderRangeTimelines(events, rangeDays) {
       month: '2-digit',
     });
 
-    const walks = dayEvents.filter((event) => event.type === 'walk');
+    const walks = dayEvents.filter((event) => event.type === 'walk' && !isWalkRecordingDisabledEvent(event));
     const sleeps = dayEvents.filter((event) => event.type === 'sleep');
     const feeds = dayEvents.filter((event) => event.type === 'feed').length;
     const minutes = walks.reduce((sum, event) => sum + intervalMinutesWithinDay(event, dayStart, dayEnd, now), 0);
@@ -2472,6 +2600,7 @@ async function refreshAll() {
     api('/api/stats/today'),
     api('/api/events?all=1'),
   ]);
+  const sortedEvents = sortEventsForDisplay(events);
 
   const walkStatusEl = document.getElementById('walk-status');
   const sleepStatusEl = document.getElementById('sleep-status');
@@ -2495,8 +2624,8 @@ async function refreshAll() {
     renderCurrentAloneStatus();
   }
 
-  lastPipiDoneAt = extractLastEliminationTimestamp(events, 'pipi', 'walk_end');
-  lastPupuDoneAt = extractLastEliminationTimestamp(events, 'pupu', 'walk_end');
+  lastPipiDoneAt = extractLastEliminationTimestamp(sortedEvents, 'pipi', 'walk_end');
+  lastPupuDoneAt = extractLastEliminationTimestamp(sortedEvents, 'pupu', 'walk_end');
   renderEliminationStatus();
 
   document.getElementById('walks').textContent = String(stats.walks);
@@ -2513,7 +2642,7 @@ async function refreshAll() {
 
   const eventsList = document.getElementById('events');
   eventsList.innerHTML = '';
-  recentEventsCache = events.slice(0, 30);
+  recentEventsCache = sortedEvents.slice(0, 30);
   for (const event of recentEventsCache) {
     const li = document.createElement('li');
     const content = document.createElement('div');
@@ -2563,9 +2692,9 @@ async function refreshAll() {
     eventsList.appendChild(li);
   }
 
-  renderTimeline(events);
-  renderRangeTimelines(events, currentRangeDays);
-  renderRangeTrends(events, currentRangeDays);
+  renderTimeline(sortedEvents);
+  renderRangeTimelines(sortedEvents, currentRangeDays);
+  renderRangeTrends(sortedEvents, currentRangeDays);
   updateRangeButtons();
 }
 
@@ -3307,6 +3436,7 @@ bindActions();
 applySettingsToForm();
 setActiveTab(currentTab);
 startEliminationStatusTicker();
+startSettingsSyncTicker();
 setupFoodAccordion();
 refreshAll().catch((error) => {
   alert(t('loadError', { error: error.message }));

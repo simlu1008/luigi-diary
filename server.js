@@ -141,6 +141,7 @@ function serializeEvent(event) {
     id: event.id,
     type: event.type,
     created_at: event.createdAt,
+    walk_recording_enabled: event.walkRecordingEnabled !== false,
     walk_start: event.walkStart,
     walk_end: event.walkEnd,
     duration_min: event.durationMin,
@@ -202,6 +203,33 @@ function normalizeFeedConsumedPercent(value) {
   return Math.max(0, Math.min(100, Math.round(numeric)));
 }
 
+function normalizeWalkRecordingEnabled(value) {
+  if (value === null || value === undefined || value === '') return true;
+  return toBooleanOrNull(value) !== false;
+}
+
+function normalizeWalkRecordingEvent(event) {
+  if (!event || event.type !== 'walk') return event;
+
+  if (event.walkRecordingEnabled === false) {
+    event.walkStart = null;
+    event.walkEnd = null;
+    event.durationMin = null;
+    event.pipiAt = event.pipi ? event.createdAt : null;
+    event.pupuAt = event.pupu ? event.createdAt : null;
+    return event;
+  }
+
+  if (event.pipi && !event.pipiAt) {
+    event.pipiAt = event.walkEnd || event.createdAt || nowIso();
+  }
+  if (event.pupu && !event.pupuAt) {
+    event.pupuAt = event.walkEnd || event.createdAt || nowIso();
+  }
+
+  return event;
+}
+
 function normalizeImportedEvent(rawEvent) {
   if (!rawEvent || typeof rawEvent !== 'object') return null;
 
@@ -209,6 +237,7 @@ function normalizeImportedEvent(rawEvent) {
   if (!type) return null;
 
   const createdAt = toIsoOrNull(rawEvent.created_at ?? rawEvent.createdAt) || nowIso();
+  const walkRecordingEnabled = normalizeWalkRecordingEnabled(rawEvent.walk_recording_enabled ?? rawEvent.walkRecordingEnabled);
   const walkStart = toIsoOrNull(rawEvent.walk_start ?? rawEvent.walkStart);
   const walkEnd = toIsoOrNull(rawEvent.walk_end ?? rawEvent.walkEnd);
   const sleepStart = toIsoOrNull(rawEvent.sleep_start ?? rawEvent.sleepStart);
@@ -234,6 +263,7 @@ function normalizeImportedEvent(rawEvent) {
     return {
       type,
       createdAt,
+      walkRecordingEnabled: true,
       walkStart: null,
       walkEnd: null,
       durationMin: null,
@@ -257,6 +287,7 @@ function normalizeImportedEvent(rawEvent) {
     return {
       type,
       createdAt,
+      walkRecordingEnabled: true,
       walkStart: null,
       walkEnd: null,
       durationMin: effectiveDuration,
@@ -280,6 +311,7 @@ function normalizeImportedEvent(rawEvent) {
     return {
       type,
       createdAt,
+      walkRecordingEnabled: true,
       walkStart: null,
       walkEnd: null,
       durationMin: effectiveDuration,
@@ -299,9 +331,10 @@ function normalizeImportedEvent(rawEvent) {
 
   const effectiveWalkDuration = durationMin ?? (walkStart && walkEnd ? minutesBetween(walkStart, walkEnd) : null);
 
-  return {
+  return normalizeWalkRecordingEvent({
     type,
     createdAt,
+    walkRecordingEnabled,
     walkStart,
     walkEnd,
     durationMin: effectiveWalkDuration,
@@ -316,13 +349,14 @@ function normalizeImportedEvent(rawEvent) {
     feedAmountG: null,
     consumedPercent: null,
     note,
-  };
+  });
 }
 
 function eventFingerprint(event) {
   return [
     event.type,
     event.createdAt,
+    event.walkRecordingEnabled !== false,
     event.walkStart,
     event.walkEnd,
     event.durationMin,
@@ -620,6 +654,7 @@ app.post('/api/walk/start', (req, res) => {
   const event = {
     type: 'walk',
     createdAt: nowIso(),
+    walkRecordingEnabled: true,
     walkStart: nowIso(),
     walkEnd: null,
     durationMin: null,
@@ -822,12 +857,14 @@ app.post('/api/manual/event', (req, res) => {
 
   const noteRaw = req.body?.note;
   const note = typeof noteRaw === 'string' && noteRaw.trim() ? noteRaw.trim() : null;
+  const walkRecordingEnabled = normalizeWalkRecordingEnabled(req.body?.walk_recording_enabled ?? req.body?.walkRecordingEnabled);
 
   if (type === 'feed') {
     const createdAt = makeIsoFromRequest(req.body?.created_at) || nowIso();
     const event = {
       type,
       createdAt,
+      walkRecordingEnabled: true,
       walkStart: null,
       walkEnd: null,
       durationMin: null,
@@ -850,14 +887,41 @@ app.post('/api/manual/event', (req, res) => {
   if (type === 'walk') {
     const walkStart = makeIsoFromRequest(req.body?.walk_start);
     const walkEnd = makeIsoFromRequest(req.body?.walk_end);
+    const createdAt = makeIsoFromRequest(req.body?.created_at) || nowIso();
+
+    if (!walkRecordingEnabled) {
+      const event = normalizeWalkRecordingEvent({
+        type,
+        createdAt,
+        walkRecordingEnabled: false,
+        walkStart: null,
+        walkEnd: null,
+        durationMin: null,
+        pipi: toBooleanOrNull(req.body?.pipi),
+        pupu: toBooleanOrNull(req.body?.pupu),
+        pipiAt: null,
+        pupuAt: null,
+        sleepStart: null,
+        sleepEnd: null,
+        aloneStart: null,
+        aloneEnd: null,
+        feedAmountG: null,
+        consumedPercent: null,
+        note,
+      });
+
+      const inserted = pushEvent(store, event);
+      return res.status(201).json(serializeEvent(inserted));
+    }
 
     if (!walkStart || !walkEnd) {
       return res.status(400).json({ error: 'Für manuelle Spaziergänge sind `walk_start` und `walk_end` nötig.' });
     }
 
-    const event = {
+    const event = normalizeWalkRecordingEvent({
       type,
       createdAt: makeIsoFromRequest(req.body?.created_at) || walkStart,
+      walkRecordingEnabled: true,
       walkStart,
       walkEnd,
       durationMin: toIntegerOrNull(req.body?.duration_min) ?? minutesBetween(walkStart, walkEnd),
@@ -872,7 +936,7 @@ app.post('/api/manual/event', (req, res) => {
       feedAmountG: null,
       consumedPercent: null,
       note,
-    };
+    });
 
     event.pipiAt = event.pipi ? makeIsoFromRequest(req.body?.pipi_at) || walkEnd : null;
     event.pupuAt = event.pupu ? makeIsoFromRequest(req.body?.pupu_at) || walkEnd : null;
@@ -896,6 +960,7 @@ app.post('/api/manual/event', (req, res) => {
     const event = {
       type: 'alone',
       createdAt: makeIsoFromRequest(req.body?.created_at) || aloneStart,
+      walkRecordingEnabled: true,
       walkStart: null,
       walkEnd: null,
       durationMin: aloneDurationMin,
@@ -924,6 +989,7 @@ app.post('/api/manual/event', (req, res) => {
   const event = {
     type: 'sleep',
     createdAt: makeIsoFromRequest(req.body?.created_at) || sleepStart,
+    walkRecordingEnabled: true,
     walkStart: null,
     walkEnd: null,
     durationMin: sleepDurationMin,
@@ -1015,7 +1081,14 @@ app.get('/api/events', (req, res) => {
   const limitRaw = Number(req.query.limit || 30);
   const limit = Number.isFinite(limitRaw) ? Math.max(1, Math.min(10000, limitRaw)) : 30;
 
-  const sortedEvents = [...store.events].sort((left, right) => right.id - left.id);
+  const sortedEvents = [...store.events].sort((left, right) => {
+    const leftCreated = new Date(left.createdAt).getTime();
+    const rightCreated = new Date(right.createdAt).getTime();
+    if (leftCreated !== rightCreated) {
+      return rightCreated - leftCreated;
+    }
+    return right.id - left.id;
+  });
   const selectedEvents = includeAll ? sortedEvents : sortedEvents.slice(0, limit);
   const events = selectedEvents.map(serializeEvent);
 
@@ -1126,9 +1199,20 @@ app.patch('/api/events/:id', (req, res) => {
   }
 
   if (event.type === 'walk') {
+    const walkRecordingEnabled = Object.prototype.hasOwnProperty.call(req.body, 'walk_recording_enabled')
+      ? normalizeWalkRecordingEnabled(req.body.walk_recording_enabled)
+      : event.walkRecordingEnabled !== false;
+    event.walkRecordingEnabled = walkRecordingEnabled;
+
+    if (!walkRecordingEnabled) {
+      event.walkStart = null;
+      event.walkEnd = null;
+      event.durationMin = null;
+    }
+
     if (Object.prototype.hasOwnProperty.call(req.body, 'walk_start')) {
       const walkStart = makeIsoFromRequest(req.body.walk_start);
-      if (!walkStart) {
+      if (!walkStart && walkRecordingEnabled) {
         return res.status(400).json({ error: 'Ungültiger Walk-Start.' });
       }
       event.walkStart = walkStart;
@@ -1136,17 +1220,17 @@ app.patch('/api/events/:id', (req, res) => {
 
     if (Object.prototype.hasOwnProperty.call(req.body, 'walk_end')) {
       const walkEnd = makeIsoFromRequest(req.body.walk_end);
-      if (!walkEnd) {
+      if (!walkEnd && walkRecordingEnabled) {
         return res.status(400).json({ error: 'Ungültiges Walk-Ende.' });
       }
       event.walkEnd = walkEnd;
     }
 
-    if (event.walkStart && event.walkEnd && new Date(event.walkEnd).getTime() < new Date(event.walkStart).getTime()) {
+    if (walkRecordingEnabled && event.walkStart && event.walkEnd && new Date(event.walkEnd).getTime() < new Date(event.walkStart).getTime()) {
       return res.status(400).json({ error: 'Walk-Ende muss nach Walk-Start liegen.' });
     }
 
-    if (event.walkStart && event.walkEnd) {
+    if (walkRecordingEnabled && event.walkStart && event.walkEnd) {
       event.durationMin = minutesBetween(event.walkStart, event.walkEnd);
     }
 
@@ -1156,7 +1240,7 @@ app.patch('/api/events/:id', (req, res) => {
         return res.status(400).json({ error: 'Ungültiger Pipi-Wert.' });
       }
       event.pipi = pipi;
-      event.pipiAt = pipi ? event.pipiAt || event.walkEnd : null;
+      event.pipiAt = pipi ? (walkRecordingEnabled ? event.pipiAt || event.walkEnd : event.createdAt) : null;
     }
 
     if (Object.prototype.hasOwnProperty.call(req.body, 'pupu')) {
@@ -1165,15 +1249,10 @@ app.patch('/api/events/:id', (req, res) => {
         return res.status(400).json({ error: 'Ungültiger Pupu-Wert.' });
       }
       event.pupu = pupu;
-      event.pupuAt = pupu ? event.pupuAt || event.walkEnd : null;
+      event.pupuAt = pupu ? (walkRecordingEnabled ? event.pupuAt || event.walkEnd : event.createdAt) : null;
     }
 
-    if (event.pipi && !event.pipiAt) {
-      event.pipiAt = event.walkEnd || nowIso();
-    }
-    if (event.pupu && !event.pupuAt) {
-      event.pupuAt = event.walkEnd || nowIso();
-    }
+    normalizeWalkRecordingEvent(event);
   }
 
   if (event.type === 'sleep') {
@@ -1267,6 +1346,7 @@ app.get('/api/export/csv', (_req, res) => {
     'id',
     'type',
     'created_at',
+    'walk_recording_enabled',
     'walk_start',
     'walk_end',
     'sleep_start',
@@ -1290,6 +1370,7 @@ app.get('/api/export/csv', (_req, res) => {
       event.id,
       event.type,
       event.created_at,
+      event.walk_recording_enabled,
       event.walk_start,
       event.walk_end,
       event.sleep_start,
@@ -1330,7 +1411,7 @@ app.get('/api/stats/today', (_req, res) => {
 
   const eventsToday = store.events.filter((event) => toLocalDate(event.createdAt) === today);
 
-  const walks = eventsToday.filter((event) => event.type === 'walk');
+  const walks = eventsToday.filter((event) => event.type === 'walk' && event.walkRecordingEnabled !== false);
   const feeds = eventsToday.filter((event) => event.type === 'feed');
   const sleeps = store.events.filter(
     (event) =>
