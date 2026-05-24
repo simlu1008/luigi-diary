@@ -659,7 +659,7 @@ const DEFAULT_SETTINGS = {
   candySharePercent: 0,
   foodProfiles: createDefaultFoodProfiles(),
 };
-let currentLanguage = 'en';
+let currentLanguage = 'de';
 let currentTab = 'today';
 let appSettings = { ...DEFAULT_SETTINGS, foodProfiles: createDefaultFoodProfiles() };
 let currentWalkPipiAt = null;
@@ -1360,6 +1360,14 @@ function initLanguage() {
   if (savedLanguage && SUPPORTED_LANGUAGES.includes(savedLanguage)) {
     currentLanguage = savedLanguage;
   }
+  else {
+    // Persist default language choice so UI uses 24h / German formatting by default
+    try {
+      localStorage.setItem(LANGUAGE_STORAGE_KEY, currentLanguage);
+    } catch (e) {
+      // ignore
+    }
+  }
 
   const languageSelect = document.getElementById('language-select');
   if (languageSelect) {
@@ -1667,6 +1675,23 @@ function formatDateTimeForInput(value) {
   if (!date) return '';
   const offsetMinutes = date.getTimezoneOffset();
   return new Date(date.getTime() - offsetMinutes * 60000).toISOString().slice(0, 16);
+}
+
+function localInputToIso(localValue) {
+  // Convert a `datetime-local` input value (YYYY-MM-DDTHH:MM[:SS])
+  // to an ISO timestamp representing that local time in UTC.
+  if (!localValue) return null;
+  const m = localValue.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?$/);
+  if (!m) return null;
+  const year = Number(m[1]);
+  const month = Number(m[2]) - 1;
+  const day = Number(m[3]);
+  const hour = Number(m[4]);
+  const minute = Number(m[5]);
+  const second = Number(m[6] || '0');
+  const date = new Date(year, month, day, hour, minute, second, 0);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toISOString();
 }
 
 function localDayKey(date) {
@@ -2075,7 +2100,7 @@ function buildEditPayload() {
   };
 
   const createdAtValue = document.getElementById('edit-created-at').value.trim();
-  if (createdAtValue) payload.created_at = createdAtValue;
+  if (createdAtValue) payload.created_at = localInputToIso(createdAtValue) || createdAtValue;
 
   if (eventType === 'feed') {
     const amountValue = document.getElementById('edit-amount-g').value.trim();
@@ -2090,8 +2115,8 @@ function buildEditPayload() {
     if (walkRecordingEnabled) {
       const walkStartValue = document.getElementById('edit-walk-start').value.trim();
       const walkEndValue = document.getElementById('edit-walk-end').value.trim();
-      if (walkStartValue) payload.walk_start = walkStartValue;
-      if (walkEndValue) payload.walk_end = walkEndValue;
+      if (walkStartValue) payload.walk_start = localInputToIso(walkStartValue) || walkStartValue;
+      if (walkEndValue) payload.walk_end = localInputToIso(walkEndValue) || walkEndValue;
     }
     return payload;
   }
@@ -2099,16 +2124,16 @@ function buildEditPayload() {
   if (eventType === 'sleep') {
     const sleepStartValue = document.getElementById('edit-sleep-start').value.trim();
     const sleepEndValue = document.getElementById('edit-sleep-end').value.trim();
-    if (sleepStartValue) payload.sleep_start = sleepStartValue;
-    if (sleepEndValue) payload.sleep_end = sleepEndValue;
+    if (sleepStartValue) payload.sleep_start = localInputToIso(sleepStartValue) || sleepStartValue;
+    if (sleepEndValue) payload.sleep_end = localInputToIso(sleepEndValue) || sleepEndValue;
     return payload;
   }
 
   if (eventType === 'alone') {
     const aloneStartValue = document.getElementById('edit-alone-start').value.trim();
     const aloneEndValue = document.getElementById('edit-alone-end').value.trim();
-    if (aloneStartValue) payload.alone_start = aloneStartValue;
-    if (aloneEndValue) payload.alone_end = aloneEndValue;
+    if (aloneStartValue) payload.alone_start = localInputToIso(aloneStartValue) || aloneStartValue;
+    if (aloneEndValue) payload.alone_end = localInputToIso(aloneEndValue) || aloneEndValue;
     return payload;
   }
 
