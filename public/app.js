@@ -658,6 +658,10 @@ const DEFAULT_SETTINGS = {
   targetWeightKg: null,
   candySharePercent: 0,
   foodProfiles: createDefaultFoodProfiles(),
+  activeFeedingPhaseId: 'puppy',
+  feedingPhaseLabel: 'Welpe',
+  feedingPhaseStartDate: '',
+  feedingPhases: [],
 };
 let currentLanguage = 'de';
 let currentTab = 'today';
@@ -857,6 +861,8 @@ const TRANSLATIONS = {
     backupSaved: 'Backup gespeichert: {fileName}',
     backupFailed: 'Backup fehlgeschlagen: {error}',
     settingsSubtitle: 'Tagesziel und Fütterungs-Defaults konfigurieren.',
+    settingsFeedingPhaseLabel: 'Aktive Fütterungsphase',
+    settingsFeedingPhaseStartLabel: 'Phase gültig ab',
     settingsDailyTargetLabel: 'Futterziel pro Tag (g)',
     settingsDefaultPortionLabel: 'Standard-Portion beim Füttern (g)',
     settingsBirthDateLabel: 'Geburtsdatum',
@@ -1084,6 +1090,8 @@ const TRANSLATIONS = {
     backupSaved: 'Backup saved: {fileName}',
     backupFailed: 'Backup failed: {error}',
     settingsSubtitle: 'Configure daily target and feeding defaults.',
+    settingsFeedingPhaseLabel: 'Active feeding phase',
+    settingsFeedingPhaseStartLabel: 'Phase valid from',
     settingsDailyTargetLabel: 'Feed target per day (g)',
     settingsDefaultPortionLabel: 'Default portion for feeding (g)',
     settingsBirthDateLabel: 'Birth date',
@@ -1290,6 +1298,8 @@ function applyStaticTranslations() {
   setText('import-replace', t('buttonImportReplace'));
   setText('import-hint', t('importHint'));
   setText('settings-subtitle', t('settingsSubtitle'));
+  setText('settings-feeding-phase-label', t('settingsFeedingPhaseLabel'));
+  setText('settings-feeding-phase-start-label', t('settingsFeedingPhaseStartLabel'));
   setText('settings-daily-target-label', t('settingsDailyTargetLabel'));
   setText('settings-default-portion-label', t('settingsDefaultPortionLabel'));
   setText('settings-birth-date-label', t('settingsBirthDateLabel'));
@@ -1404,6 +1414,14 @@ function loadAppSettings() {
       targetWeightKg,
       candySharePercent: sanitizeCandySharePercent(parsed?.candySharePercent, 0),
       foodProfiles,
+      activeFeedingPhaseId: typeof parsed?.activeFeedingPhaseId === 'string' && parsed.activeFeedingPhaseId.trim()
+        ? parsed.activeFeedingPhaseId.trim()
+        : DEFAULT_SETTINGS.activeFeedingPhaseId,
+      feedingPhaseLabel: typeof parsed?.feedingPhaseLabel === 'string' && parsed.feedingPhaseLabel.trim()
+        ? parsed.feedingPhaseLabel.trim()
+        : DEFAULT_SETTINGS.feedingPhaseLabel,
+      feedingPhaseStartDate: typeof parsed?.feedingPhaseStartDate === 'string' ? parsed.feedingPhaseStartDate : '',
+      feedingPhases: Array.isArray(parsed?.feedingPhases) ? parsed.feedingPhases : [],
     };
   } catch {
     appSettings = { ...DEFAULT_SETTINGS, foodProfiles: createDefaultFoodProfiles() };
@@ -1436,6 +1454,14 @@ function createSettingsSignature(settings) {
       : null,
     candySharePercent: sanitizeCandySharePercent(settings?.candySharePercent, 0),
     foodProfiles: normalizedFoodProfiles,
+    activeFeedingPhaseId: typeof settings?.activeFeedingPhaseId === 'string' && settings.activeFeedingPhaseId.trim()
+      ? settings.activeFeedingPhaseId.trim()
+      : DEFAULT_SETTINGS.activeFeedingPhaseId,
+    feedingPhaseLabel: typeof settings?.feedingPhaseLabel === 'string' && settings.feedingPhaseLabel.trim()
+      ? settings.feedingPhaseLabel.trim()
+      : DEFAULT_SETTINGS.feedingPhaseLabel,
+    feedingPhaseStartDate: typeof settings?.feedingPhaseStartDate === 'string' ? settings.feedingPhaseStartDate.trim() : '',
+    feedingPhases: Array.isArray(settings?.feedingPhases) ? settings.feedingPhases : [],
   });
 }
 
@@ -1451,6 +1477,10 @@ async function syncSettingsToServer() {
       target_weight_kg: appSettings.targetWeightKg,
       candy_share_percent: appSettings.candySharePercent,
       food_profiles: appSettings.foodProfiles,
+      active_feeding_phase_id: appSettings.activeFeedingPhaseId,
+      feeding_phase_label: appSettings.feedingPhaseLabel,
+      feeding_phase_start_date: appSettings.feedingPhaseStartDate,
+      feeding_phases: appSettings.feedingPhases,
     };
 
     const response = await fetch('/api/settings', {
@@ -1494,6 +1524,14 @@ async function loadAppSettingsFromServer({ updateForm = true } = {}) {
       targetWeightKg,
       candySharePercent: sanitizeCandySharePercent(serverSettings.candySharePercent, 0),
       foodProfiles,
+      activeFeedingPhaseId: typeof serverSettings.activeFeedingPhaseId === 'string' && serverSettings.activeFeedingPhaseId.trim()
+        ? serverSettings.activeFeedingPhaseId.trim()
+        : DEFAULT_SETTINGS.activeFeedingPhaseId,
+      feedingPhaseLabel: typeof serverSettings.feedingPhaseLabel === 'string' && serverSettings.feedingPhaseLabel.trim()
+        ? serverSettings.feedingPhaseLabel.trim()
+        : DEFAULT_SETTINGS.feedingPhaseLabel,
+      feedingPhaseStartDate: typeof serverSettings.feedingPhaseStartDate === 'string' ? serverSettings.feedingPhaseStartDate : '',
+      feedingPhases: Array.isArray(serverSettings.feedingPhases) ? serverSettings.feedingPhases : [],
     };
     const nextSignature = createSettingsSignature(nextSettings);
 
@@ -1538,6 +1576,8 @@ function applySettingsToForm() {
   const birthDateInput = document.getElementById('settings-birth-date');
   const weightInput = document.getElementById('settings-weight-kg');
   const targetWeightInput = document.getElementById('settings-target-weight-kg');
+  const feedingPhaseInput = document.getElementById('settings-feeding-phase');
+  const feedingPhaseStartInput = document.getElementById('settings-feeding-phase-start');
   const quickAddToggle = document.getElementById('settings-enable-quick-add');
   const walkRecordingToggle = document.getElementById('settings-enable-walk-recording');
   const settingsFoodYoungEnabled = document.getElementById('settings-food-young-enabled');
@@ -1566,6 +1606,8 @@ function applySettingsToForm() {
   if (birthDateInput) birthDateInput.value = appSettings.birthDate || '';
   if (weightInput) weightInput.value = appSettings.currentWeightKg === null ? '' : String(appSettings.currentWeightKg);
   if (targetWeightInput) targetWeightInput.value = appSettings.targetWeightKg === null ? '' : String(appSettings.targetWeightKg);
+  if (feedingPhaseInput) feedingPhaseInput.value = appSettings.activeFeedingPhaseId || 'puppy';
+  if (feedingPhaseStartInput) feedingPhaseStartInput.value = appSettings.feedingPhaseStartDate || '';
   if (quickAddToggle) quickAddToggle.checked = appSettings.quickAddEnabled;
   if (walkRecordingToggle) walkRecordingToggle.checked = appSettings.walkRecordingEnabled !== false;
   if (settingsFoodYoungEnabled) settingsFoodYoungEnabled.checked = youngProfile?.enabled === true;
@@ -2919,6 +2961,8 @@ function bindActions() {
   const settingsBirthDateInput = document.getElementById('settings-birth-date');
   const settingsWeightInput = document.getElementById('settings-weight-kg');
   const settingsTargetWeightInput = document.getElementById('settings-target-weight-kg');
+  const settingsFeedingPhaseInput = document.getElementById('settings-feeding-phase');
+  const settingsFeedingPhaseStartInput = document.getElementById('settings-feeding-phase-start');
   const settingsQuickAddToggle = document.getElementById('settings-enable-quick-add');
   const settingsWalkRecordingToggle = document.getElementById('settings-enable-walk-recording');
   const settingsFoodYoungEnabled = document.getElementById('settings-food-young-enabled');
@@ -3112,6 +3156,8 @@ function bindActions() {
     const nextWeight = nextWeightRaw === '' ? null : Number(nextWeightRaw);
     const nextTargetWeightRaw = String(settingsTargetWeightInput?.value ?? '').trim();
     const nextTargetWeight = nextTargetWeightRaw === '' ? null : Number(nextTargetWeightRaw);
+    const nextFeedingPhaseId = String(settingsFeedingPhaseInput?.value ?? 'puppy').trim();
+    const nextFeedingPhaseStartDate = String(settingsFeedingPhaseStartInput?.value ?? '').trim();
     const nextYoungValues = [
       Number(settingsFoodYoungChip1?.value ?? NaN),
       Number(settingsFoodYoungChip2?.value ?? NaN),
@@ -3215,6 +3261,18 @@ function bindActions() {
       birthDate: nextBirthDate,
       currentWeightKg: nextWeight === null ? null : Number(nextWeight.toFixed(1)),
       targetWeightKg: nextTargetWeight === null ? null : Number(nextTargetWeight.toFixed(1)),
+      activeFeedingPhaseId: nextFeedingPhaseId,
+      feedingPhaseLabel: settingsFeedingPhaseInput?.selectedOptions?.[0]?.textContent?.trim() || nextFeedingPhaseId,
+      feedingPhaseStartDate: nextFeedingPhaseStartDate,
+      feedingPhases: [
+        ...(Array.isArray(appSettings.feedingPhases) ? appSettings.feedingPhases.filter((phase) => phase?.id !== nextFeedingPhaseId) : []),
+        {
+          id: nextFeedingPhaseId,
+          label: settingsFeedingPhaseInput?.selectedOptions?.[0]?.textContent?.trim() || nextFeedingPhaseId,
+          startDate: nextFeedingPhaseStartDate,
+          updatedAt: new Date().toISOString(),
+        },
+      ],
       candySharePercent: getCandySharePercent(),
       foodProfiles,
     };

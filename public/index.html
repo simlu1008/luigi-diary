@@ -339,6 +339,18 @@
         <p id="settings-subtitle" class="timeline-subtitle">Tagesziel und Fütterungs-Defaults konfigurieren.</p>
         <div class="settings-grid">
           <label>
+            <span id="settings-feeding-phase-label">Aktive Fütterungsphase</span>
+            <select id="settings-feeding-phase">
+              <option value="puppy">Welpe</option>
+              <option value="young_dog">Junghund</option>
+              <option value="adult">Adult</option>
+            </select>
+          </label>
+          <label>
+            <span id="settings-feeding-phase-start-label">Phase gültig ab</span>
+            <input id="settings-feeding-phase-start" type="date" />
+          </label>
+          <label>
             <span id="settings-daily-target-label">Futterziel pro Tag (g)</span>
             <input id="settings-daily-target-g" type="number" min="0" step="1" inputmode="numeric" />
           </label>

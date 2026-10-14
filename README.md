@@ -14,6 +14,7 @@ Einfache, mobile Web-App zum Tracken von:
 - Backup-Snapshot per Klick (JSON mit Zeitstempel)
 - Export aller Daten als JSON/CSV
 - Import aus JSON/CSV (anhängen oder komplett ersetzen)
+- Fütterungsphasen (Welpe, Junghund, Adult) mit Startdatum und Zuordnung neuer Fütterungen
 
 ## Stack
 
@@ -28,6 +29,14 @@ Einfache, mobile Web-App zum Tracken von:
 - Für große Datenmengen kann später auf eine Datenbank migriert werden, das Format bleibt exportierbar.
 - Die App speichert zusätzlich die Einstellungen in `settings.json`.
 - Beim Deploy bleiben Daten nur erhalten, wenn der Speicherpfad auf ein persistentes Volume zeigt, z. B. `/data`.
+
+### Fütterungsphasen
+
+Die bisherigen Ereignisse bleiben erhalten. In den Einstellungen kann eine aktive Phase
+(`Welpe`, `Junghund` oder `Adult`) mit einem Startdatum ausgewählt werden. Jede neue
+Fütterung speichert die zu diesem Zeitpunkt aktive Phasen-ID (`feeding_phase_id`).
+Dadurch kann die Umstellung nachvollzogen werden, ohne die historische Welpen-
+Dokumentation zu löschen oder in einen separaten Datenbestand verschieben zu müssen.
 
 ## Datenexport
 

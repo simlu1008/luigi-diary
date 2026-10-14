@@ -70,7 +70,21 @@ function ensureSettingsFile() {
   }
 
   if (!fs.existsSync(settingsFile)) {
-    fs.writeFileSync(settingsFile, JSON.stringify({ dailyTargetG: 300, defaultPortionG: 50, quickAddEnabled: true, walkRecordingEnabled: true, birthDate: '', currentWeightKg: null, targetWeightKg: null, candySharePercent: 0, foodProfiles: {} }, null, 2));
+    fs.writeFileSync(settingsFile, JSON.stringify({
+      dailyTargetG: 300,
+      defaultPortionG: 50,
+      quickAddEnabled: true,
+      walkRecordingEnabled: true,
+      birthDate: '',
+      currentWeightKg: null,
+      targetWeightKg: null,
+      candySharePercent: 0,
+      foodProfiles: {},
+      activeFeedingPhaseId: 'puppy',
+      feedingPhaseLabel: 'Welpe',
+      feedingPhaseStartDate: '',
+      feedingPhases: [],
+    }, null, 2));
   }
 }
 
@@ -158,6 +172,7 @@ function serializeEvent(event) {
     feed_amount_g: event.feedAmountG,
     feed_consumed_percent: consumedPercent,
     feed_consumed_amount_g: consumedAmount,
+    feeding_phase_id: event.type === 'feed' ? event.feedingPhaseId || null : null,
     note: event.note,
   };
 }
@@ -246,6 +261,9 @@ function normalizeImportedEvent(rawEvent) {
   const aloneEnd = toIsoOrNull(rawEvent.alone_end ?? rawEvent.aloneEnd);
   const durationMin = toIntegerOrNull(rawEvent.duration_min ?? rawEvent.durationMin);
   const feedAmountG = toIntegerOrNull(rawEvent.feed_amount_g ?? rawEvent.feedAmountG ?? rawEvent.amount_g ?? rawEvent.amountG);
+  const feedingPhaseId = typeof (rawEvent.feeding_phase_id ?? rawEvent.feedingPhaseId) === 'string'
+    ? (rawEvent.feeding_phase_id ?? rawEvent.feedingPhaseId).trim() || null
+    : null;
   const consumedPercent = normalizeFeedConsumedPercent(
     rawEvent.feed_consumed_percent
     ?? rawEvent.feedConsumedPercent
@@ -276,6 +294,7 @@ function normalizeImportedEvent(rawEvent) {
       aloneStart: null,
       aloneEnd: null,
       feedAmountG,
+      feedingPhaseId,
       consumedPercent,
       note,
     };
@@ -369,6 +388,7 @@ function eventFingerprint(event) {
     event.aloneStart,
     event.aloneEnd,
     event.feedAmountG,
+    event.feedingPhaseId,
     normalizeFeedConsumedPercent(event.consumedPercent),
     event.note,
   ].join('|');
@@ -718,6 +738,7 @@ app.post('/api/walk/end', (req, res) => {
 
 app.post('/api/feed', (req, res) => {
   const store = readStore();
+  const settings = readSettings();
   const note = typeof req.body?.note === 'string' ? req.body.note.trim() : '';
   const amountG = toIntegerOrNull(req.body?.amount_g);
 
@@ -736,6 +757,7 @@ app.post('/api/feed', (req, res) => {
     aloneStart: null,
     aloneEnd: null,
     feedAmountG: amountG,
+    feedingPhaseId: typeof settings.activeFeedingPhaseId === 'string' ? settings.activeFeedingPhaseId : null,
     consumedPercent: 100,
     note: note || null,
   };
@@ -877,6 +899,7 @@ app.post('/api/manual/event', (req, res) => {
       aloneStart: null,
       aloneEnd: null,
       feedAmountG: toIntegerOrNull(req.body?.amount_g),
+      feedingPhaseId: typeof req.body?.feeding_phase_id === 'string' ? req.body.feeding_phase_id.trim() || null : null,
       consumedPercent: normalizeFeedConsumedPercent(req.body?.consumed_percent),
       note,
     };
@@ -1193,6 +1216,15 @@ app.patch('/api/events/:id', (req, res) => {
         if (!Number.isFinite(numeric)) {
           return res.status(400).json({ error: 'Ungültiger Prozentwert für gefressen.' });
         }
+
+        if (Object.prototype.hasOwnProperty.call(req.body, 'feeding_phase_id')) {
+          if (req.body.feeding_phase_id !== null && typeof req.body.feeding_phase_id !== 'string') {
+            return res.status(400).json({ error: 'Ungültige Fütterungsphase.' });
+          }
+          event.feedingPhaseId = typeof req.body.feeding_phase_id === 'string'
+            ? req.body.feeding_phase_id.trim() || null
+            : null;
+        }
         event.consumedPercent = normalizeFeedConsumedPercent(numeric);
       }
     }
@@ -1508,6 +1540,29 @@ app.post('/api/settings', (req, res) => {
 
   if (Object.prototype.hasOwnProperty.call(req.body, 'food_profiles') && typeof req.body.food_profiles === 'object') {
     settings.foodProfiles = req.body.food_profiles;
+  }
+
+  if (Object.prototype.hasOwnProperty.call(req.body, 'active_feeding_phase_id')) {
+    const value = req.body.active_feeding_phase_id;
+    if (typeof value === 'string' && value.trim()) {
+      settings.activeFeedingPhaseId = value.trim();
+    }
+  }
+
+  if (Object.prototype.hasOwnProperty.call(req.body, 'feeding_phase_label')) {
+    const value = req.body.feeding_phase_label;
+    if (typeof value === 'string' && value.trim()) {
+      settings.feedingPhaseLabel = value.trim();
+    }
+  }
+
+  if (Object.prototype.hasOwnProperty.call(req.body, 'feeding_phase_start_date')) {
+    const value = req.body.feeding_phase_start_date;
+    settings.feedingPhaseStartDate = typeof value === 'string' ? value.trim() : '';
+  }
+
+  if (Object.prototype.hasOwnProperty.call(req.body, 'feeding_phases') && Array.isArray(req.body.feeding_phases)) {
+    settings.feedingPhases = req.body.feeding_phases;
   }
 
   writeSettings(settings);
