@@ -71,8 +71,6 @@ function ensureSettingsFile() {
 
   if (!fs.existsSync(settingsFile)) {
     fs.writeFileSync(settingsFile, JSON.stringify({
-      dailyTargetG: 300,
-      defaultPortionG: 50,
       quickAddEnabled: true,
       walkRecordingEnabled: true,
       birthDate: '',
@@ -111,6 +109,12 @@ function writeSettings(settings) {
 
 function nowIso() {
   return new Date().toISOString();
+}
+
+function normalizeFeedingPhaseId(value) {
+  const normalized = typeof value === 'string' ? value.trim() : '';
+  if (normalized === 'young_dog') return 'adult';
+  return normalized === 'adult' ? 'adult' : 'puppy';
 }
 
 function toLocalDate(value) {
@@ -757,7 +761,7 @@ app.post('/api/feed', (req, res) => {
     aloneStart: null,
     aloneEnd: null,
     feedAmountG: amountG,
-    feedingPhaseId: typeof settings.activeFeedingPhaseId === 'string' ? settings.activeFeedingPhaseId : null,
+    feedingPhaseId: normalizeFeedingPhaseId(settings.activeFeedingPhaseId),
     consumedPercent: 100,
     note: note || null,
   };
@@ -1493,20 +1497,6 @@ app.post('/api/settings', (req, res) => {
 
   const settings = readSettings();
 
-  if (Object.prototype.hasOwnProperty.call(req.body, 'daily_target_g')) {
-    const value = req.body.daily_target_g;
-    if (Number.isFinite(value) && value >= 0) {
-      settings.dailyTargetG = Math.floor(value);
-    }
-  }
-
-  if (Object.prototype.hasOwnProperty.call(req.body, 'default_portion_g')) {
-    const value = req.body.default_portion_g;
-    if (Number.isFinite(value) && value >= 0) {
-      settings.defaultPortionG = Math.floor(value);
-    }
-  }
-
   if (Object.prototype.hasOwnProperty.call(req.body, 'quick_add_enabled')) {
     settings.quickAddEnabled = req.body.quick_add_enabled === true;
   }
@@ -1545,7 +1535,7 @@ app.post('/api/settings', (req, res) => {
   if (Object.prototype.hasOwnProperty.call(req.body, 'active_feeding_phase_id')) {
     const value = req.body.active_feeding_phase_id;
     if (typeof value === 'string' && value.trim()) {
-      settings.activeFeedingPhaseId = value.trim();
+      settings.activeFeedingPhaseId = normalizeFeedingPhaseId(value);
     }
   }
 

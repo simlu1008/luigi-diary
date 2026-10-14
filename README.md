@@ -33,10 +33,14 @@ Einfache, mobile Web-App zum Tracken von:
 ### Fütterungsphasen
 
 Die bisherigen Ereignisse bleiben erhalten. In den Einstellungen kann eine aktive Phase
-(`Welpe`, `Junghund` oder `Adult`) mit einem Startdatum ausgewählt werden. Jede neue
+(`Welpe` oder `Adult`) mit einem Startdatum ausgewählt werden. Jede neue
 Fütterung speichert die zu diesem Zeitpunkt aktive Phasen-ID (`feeding_phase_id`).
 Dadurch kann die Umstellung nachvollzogen werden, ohne die historische Welpen-
 Dokumentation zu löschen oder in einen separaten Datenbestand verschieben zu müssen.
+
+Der Tagesbedarf wird ausschließlich aus der passenden Hersteller-Tabelle anhand von
+Geburtsdatum, Zielgewicht und aktiver Futtersorte berechnet. Ein manuelles Tagesziel
+oder eine Standard-Portion werden nicht mehr verwendet.
 
 ## Datenexport
 

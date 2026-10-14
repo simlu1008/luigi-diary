@@ -410,9 +410,7 @@ function getFoodReferenceTarget() {
 
 function getEffectiveDailyTargetGrams() {
   const referenceTarget = getFoodReferenceTarget();
-  if (referenceTarget?.gramsPerDay) return referenceTarget.gramsPerDay;
-  const fallback = Number(appSettings.dailyTargetG || 0);
-  return Number.isFinite(fallback) && fallback > 0 ? fallback : null;
+  return referenceTarget?.gramsPerDay || null;
 }
 
 function getCandySharePercent() {
@@ -649,8 +647,6 @@ const ACTIVE_TAB_STORAGE_KEY = 'luigi-active-tab';
 const SETTINGS_STORAGE_KEY = 'luigi-settings';
 const SUPPORTED_LANGUAGES = ['de', 'en'];
 const DEFAULT_SETTINGS = {
-  dailyTargetG: 300,
-  defaultPortionG: 50,
   quickAddEnabled: true,
   walkRecordingEnabled: true,
   birthDate: '',
@@ -663,6 +659,13 @@ const DEFAULT_SETTINGS = {
   feedingPhaseStartDate: '',
   feedingPhases: [],
 };
+
+function normalizeFeedingPhaseId(value) {
+  const normalized = typeof value === 'string' ? value.trim() : '';
+  if (normalized === 'young_dog') return 'adult';
+  return normalized === 'adult' ? 'adult' : 'puppy';
+}
+
 let currentLanguage = 'de';
 let currentTab = 'today';
 let appSettings = { ...DEFAULT_SETTINGS, foodProfiles: createDefaultFoodProfiles() };
@@ -860,11 +863,9 @@ const TRANSLATIONS = {
     downloadFailed: 'Download fehlgeschlagen',
     backupSaved: 'Backup gespeichert: {fileName}',
     backupFailed: 'Backup fehlgeschlagen: {error}',
-    settingsSubtitle: 'Tagesziel und Fütterungs-Defaults konfigurieren.',
+    settingsSubtitle: 'Fütterungsphase, Gewicht und Futterprofile konfigurieren.',
     settingsFeedingPhaseLabel: 'Aktive Fütterungsphase',
     settingsFeedingPhaseStartLabel: 'Phase gültig ab',
-    settingsDailyTargetLabel: 'Futterziel pro Tag (g)',
-    settingsDefaultPortionLabel: 'Standard-Portion beim Füttern (g)',
     settingsBirthDateLabel: 'Geburtsdatum',
     settingsWeightLabel: 'Aktuelles Gewicht (kg)',
     settingsTargetWeightLabel: 'Zielgewicht / Endgewicht (kg)',
@@ -1089,11 +1090,9 @@ const TRANSLATIONS = {
     downloadFailed: 'Download failed',
     backupSaved: 'Backup saved: {fileName}',
     backupFailed: 'Backup failed: {error}',
-    settingsSubtitle: 'Configure daily target and feeding defaults.',
+    settingsSubtitle: 'Configure feeding phase, weight, and food profiles.',
     settingsFeedingPhaseLabel: 'Active feeding phase',
     settingsFeedingPhaseStartLabel: 'Phase valid from',
-    settingsDailyTargetLabel: 'Feed target per day (g)',
-    settingsDefaultPortionLabel: 'Default portion for feeding (g)',
     settingsBirthDateLabel: 'Birth date',
     settingsWeightLabel: 'Current weight (kg)',
     settingsTargetWeightLabel: 'Target/adult weight (kg)',
@@ -1300,8 +1299,6 @@ function applyStaticTranslations() {
   setText('settings-subtitle', t('settingsSubtitle'));
   setText('settings-feeding-phase-label', t('settingsFeedingPhaseLabel'));
   setText('settings-feeding-phase-start-label', t('settingsFeedingPhaseStartLabel'));
-  setText('settings-daily-target-label', t('settingsDailyTargetLabel'));
-  setText('settings-default-portion-label', t('settingsDefaultPortionLabel'));
   setText('settings-birth-date-label', t('settingsBirthDateLabel'));
   setText('settings-weight-label', t('settingsWeightLabel'));
   setText('settings-target-weight-label', t('settingsTargetWeightLabel'));
@@ -1405,8 +1402,6 @@ function loadAppSettings() {
     const foodProfiles = normalizeFoodProfiles(parsed?.foodProfiles);
 
     appSettings = {
-      dailyTargetG: Number.isFinite(Number(parsed?.dailyTargetG)) ? Math.max(0, Math.floor(Number(parsed.dailyTargetG))) : DEFAULT_SETTINGS.dailyTargetG,
-      defaultPortionG: Number.isFinite(Number(parsed?.defaultPortionG)) ? Math.max(0, Math.floor(Number(parsed.defaultPortionG))) : DEFAULT_SETTINGS.defaultPortionG,
       quickAddEnabled: parsed?.quickAddEnabled !== false,
       walkRecordingEnabled: parsed?.walkRecordingEnabled !== false,
       birthDate,
@@ -1414,9 +1409,7 @@ function loadAppSettings() {
       targetWeightKg,
       candySharePercent: sanitizeCandySharePercent(parsed?.candySharePercent, 0),
       foodProfiles,
-      activeFeedingPhaseId: typeof parsed?.activeFeedingPhaseId === 'string' && parsed.activeFeedingPhaseId.trim()
-        ? parsed.activeFeedingPhaseId.trim()
-        : DEFAULT_SETTINGS.activeFeedingPhaseId,
+      activeFeedingPhaseId: normalizeFeedingPhaseId(parsed?.activeFeedingPhaseId),
       feedingPhaseLabel: typeof parsed?.feedingPhaseLabel === 'string' && parsed.feedingPhaseLabel.trim()
         ? parsed.feedingPhaseLabel.trim()
         : DEFAULT_SETTINGS.feedingPhaseLabel,
@@ -1441,8 +1434,6 @@ function saveAppSettings() {
 function createSettingsSignature(settings) {
   const normalizedFoodProfiles = normalizeFoodProfiles(settings?.foodProfiles);
   return JSON.stringify({
-    dailyTargetG: Number.isFinite(Number(settings?.dailyTargetG)) ? Math.max(0, Math.floor(Number(settings.dailyTargetG))) : DEFAULT_SETTINGS.dailyTargetG,
-    defaultPortionG: Number.isFinite(Number(settings?.defaultPortionG)) ? Math.max(0, Math.floor(Number(settings.defaultPortionG))) : DEFAULT_SETTINGS.defaultPortionG,
     quickAddEnabled: settings?.quickAddEnabled !== false,
     walkRecordingEnabled: settings?.walkRecordingEnabled !== false,
     birthDate: typeof settings?.birthDate === 'string' ? settings.birthDate.trim() : '',
@@ -1454,9 +1445,7 @@ function createSettingsSignature(settings) {
       : null,
     candySharePercent: sanitizeCandySharePercent(settings?.candySharePercent, 0),
     foodProfiles: normalizedFoodProfiles,
-    activeFeedingPhaseId: typeof settings?.activeFeedingPhaseId === 'string' && settings.activeFeedingPhaseId.trim()
-      ? settings.activeFeedingPhaseId.trim()
-      : DEFAULT_SETTINGS.activeFeedingPhaseId,
+    activeFeedingPhaseId: normalizeFeedingPhaseId(settings?.activeFeedingPhaseId),
     feedingPhaseLabel: typeof settings?.feedingPhaseLabel === 'string' && settings.feedingPhaseLabel.trim()
       ? settings.feedingPhaseLabel.trim()
       : DEFAULT_SETTINGS.feedingPhaseLabel,
@@ -1468,8 +1457,6 @@ function createSettingsSignature(settings) {
 async function syncSettingsToServer() {
   try {
     const payload = {
-      daily_target_g: appSettings.dailyTargetG,
-      default_portion_g: appSettings.defaultPortionG,
       quick_add_enabled: appSettings.quickAddEnabled,
       walk_recording_enabled: appSettings.walkRecordingEnabled,
       birth_date: appSettings.birthDate || '',
@@ -1515,8 +1502,6 @@ async function loadAppSettingsFromServer({ updateForm = true } = {}) {
       : null;
     const foodProfiles = normalizeFoodProfiles(serverSettings.foodProfiles);
     const nextSettings = {
-      dailyTargetG: Number.isFinite(Number(serverSettings.dailyTargetG)) ? Math.max(0, Math.floor(Number(serverSettings.dailyTargetG))) : DEFAULT_SETTINGS.dailyTargetG,
-      defaultPortionG: Number.isFinite(Number(serverSettings.defaultPortionG)) ? Math.max(0, Math.floor(Number(serverSettings.defaultPortionG))) : DEFAULT_SETTINGS.defaultPortionG,
       quickAddEnabled: serverSettings.quickAddEnabled !== false,
       walkRecordingEnabled: serverSettings.walkRecordingEnabled !== false,
       birthDate,
@@ -1524,9 +1509,7 @@ async function loadAppSettingsFromServer({ updateForm = true } = {}) {
       targetWeightKg,
       candySharePercent: sanitizeCandySharePercent(serverSettings.candySharePercent, 0),
       foodProfiles,
-      activeFeedingPhaseId: typeof serverSettings.activeFeedingPhaseId === 'string' && serverSettings.activeFeedingPhaseId.trim()
-        ? serverSettings.activeFeedingPhaseId.trim()
-        : DEFAULT_SETTINGS.activeFeedingPhaseId,
+      activeFeedingPhaseId: normalizeFeedingPhaseId(serverSettings.activeFeedingPhaseId),
       feedingPhaseLabel: typeof serverSettings.feedingPhaseLabel === 'string' && serverSettings.feedingPhaseLabel.trim()
         ? serverSettings.feedingPhaseLabel.trim()
         : DEFAULT_SETTINGS.feedingPhaseLabel,
@@ -1571,8 +1554,6 @@ function startSettingsSyncTicker() {
 }
 
 function applySettingsToForm() {
-  const dailyTargetInput = document.getElementById('settings-daily-target-g');
-  const defaultPortionInput = document.getElementById('settings-default-portion-g');
   const birthDateInput = document.getElementById('settings-birth-date');
   const weightInput = document.getElementById('settings-weight-kg');
   const targetWeightInput = document.getElementById('settings-target-weight-kg');
@@ -1601,12 +1582,10 @@ function applySettingsToForm() {
   const platinumProfile = appSettings.foodProfiles?.platinumMenuPuppyChicken;
   const platinumMiniProfile = appSettings.foodProfiles?.platinumPuppyMiniChicken;
 
-  if (dailyTargetInput) dailyTargetInput.value = String(appSettings.dailyTargetG);
-  if (defaultPortionInput) defaultPortionInput.value = String(appSettings.defaultPortionG);
   if (birthDateInput) birthDateInput.value = appSettings.birthDate || '';
   if (weightInput) weightInput.value = appSettings.currentWeightKg === null ? '' : String(appSettings.currentWeightKg);
   if (targetWeightInput) targetWeightInput.value = appSettings.targetWeightKg === null ? '' : String(appSettings.targetWeightKg);
-  if (feedingPhaseInput) feedingPhaseInput.value = appSettings.activeFeedingPhaseId || 'puppy';
+  if (feedingPhaseInput) feedingPhaseInput.value = normalizeFeedingPhaseId(appSettings.activeFeedingPhaseId);
   if (feedingPhaseStartInput) feedingPhaseStartInput.value = appSettings.feedingPhaseStartDate || '';
   if (quickAddToggle) quickAddToggle.checked = appSettings.quickAddEnabled;
   if (walkRecordingToggle) walkRecordingToggle.checked = appSettings.walkRecordingEnabled !== false;
@@ -2956,8 +2935,6 @@ function bindActions() {
   const languageSelect = document.getElementById('language-select');
   const settingsSaveButton = document.getElementById('settings-save');
   const settingsResultEl = document.getElementById('settings-result');
-  const settingsDailyTargetInput = document.getElementById('settings-daily-target-g');
-  const settingsDefaultPortionInput = document.getElementById('settings-default-portion-g');
   const settingsBirthDateInput = document.getElementById('settings-birth-date');
   const settingsWeightInput = document.getElementById('settings-weight-kg');
   const settingsTargetWeightInput = document.getElementById('settings-target-weight-kg');
@@ -3149,14 +3126,12 @@ function bindActions() {
   });
 
   settingsSaveButton?.addEventListener('click', () => {
-    const nextDailyTarget = Number(settingsDailyTargetInput?.value ?? NaN);
-    const nextDefaultPortion = Number(settingsDefaultPortionInput?.value ?? NaN);
     const nextBirthDate = String(settingsBirthDateInput?.value ?? '').trim();
     const nextWeightRaw = String(settingsWeightInput?.value ?? '').trim();
     const nextWeight = nextWeightRaw === '' ? null : Number(nextWeightRaw);
     const nextTargetWeightRaw = String(settingsTargetWeightInput?.value ?? '').trim();
     const nextTargetWeight = nextTargetWeightRaw === '' ? null : Number(nextTargetWeightRaw);
-    const nextFeedingPhaseId = String(settingsFeedingPhaseInput?.value ?? 'puppy').trim();
+    const nextFeedingPhaseId = normalizeFeedingPhaseId(settingsFeedingPhaseInput?.value);
     const nextFeedingPhaseStartDate = String(settingsFeedingPhaseStartInput?.value ?? '').trim();
     const nextYoungValues = [
       Number(settingsFoodYoungChip1?.value ?? NaN),
@@ -3177,11 +3152,6 @@ function bindActions() {
     const nextPlatinumWeightFactor = Number(settingsFoodPlatinumWeightFactor?.value ?? NaN);
     const nextPlatinumMiniWeightFactor = Number(settingsFoodPlatinumMiniWeightFactor?.value ?? NaN);
     const nextWalkRecordingEnabled = settingsWalkRecordingToggle?.checked !== false;
-
-    if (!Number.isFinite(nextDailyTarget) || nextDailyTarget < 0 || !Number.isFinite(nextDefaultPortion) || nextDefaultPortion < 0) {
-      if (settingsResultEl) settingsResultEl.textContent = t('settingsSaveFailed');
-      return;
-    }
 
     if (nextBirthDate) {
       const hasValidFormat = /^\d{4}-\d{2}-\d{2}$/.test(nextBirthDate);
@@ -3254,8 +3224,6 @@ function bindActions() {
     };
 
     appSettings = {
-      dailyTargetG: Math.floor(nextDailyTarget),
-      defaultPortionG: Math.floor(nextDefaultPortion),
       quickAddEnabled: settingsQuickAddToggle?.checked !== false,
       walkRecordingEnabled: nextWalkRecordingEnabled,
       birthDate: nextBirthDate,
