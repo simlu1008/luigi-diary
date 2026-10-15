@@ -887,6 +887,33 @@ let todayFeedProvidedGrams = 0;
 let todayFeedConsumedGrams = 0;
 let quickAddUndoTimerId = null;
 let quickAddUndoCountdownTimerId = null;
+let poodleCelebrationTimerId = null;
+let poodlePawprintsTimerId = null;
+
+function celebratePoodleAfterFeeding() {
+  const poodle = document.querySelector('.poodle');
+  const seasonalDecoration = document.querySelector('.seasonal-decoration');
+  if (!poodle) return;
+  if (poodleCelebrationTimerId) {
+    clearTimeout(poodleCelebrationTimerId);
+  }
+  poodle.classList.add('is-celebrating');
+  seasonalDecoration?.classList.add('poodle-is-celebrating');
+  seasonalDecoration?.classList.remove('has-pawprints');
+  if (poodlePawprintsTimerId) {
+    clearTimeout(poodlePawprintsTimerId);
+  }
+  poodleCelebrationTimerId = setTimeout(() => {
+    poodle.classList.remove('is-celebrating');
+    seasonalDecoration?.classList.remove('poodle-is-celebrating');
+    poodleCelebrationTimerId = null;
+    seasonalDecoration?.classList.add('has-pawprints');
+    poodlePawprintsTimerId = setTimeout(() => {
+      seasonalDecoration?.classList.remove('has-pawprints');
+      poodlePawprintsTimerId = null;
+    }, 8000);
+  }, 30000);
+}
 let quickAddUndoEventId = null;
 let recentEventsCache = [];
 let editFeedbackTimeoutId = null;
@@ -2152,8 +2179,8 @@ function renderFeedOpenStatus() {
   if (feedOpenStatusEl) feedOpenStatusEl.textContent = statusTextOpen;
   if (todayFeedOpenStatusEl) todayFeedOpenStatusEl.textContent = statusTextOpen;
 
-  const scaleMax = Math.max(rangeMax * 1.25, fed * 1.1, target, 1);
-  const progressPercent = Math.max(0, Math.min(100, Math.round((fed / scaleMax) * 100)));
+  const scaleMax = Math.max(rangeMax * 1.1, target, 1);
+  const progressPercent = Math.max(0, Math.min(100, Math.round((fed / target) * 100)));
   const targetPercent = Math.max(0, Math.min(100, (target / scaleMax) * 100));
   const rangeMinPercent = Math.max(0, Math.min(100, (rangeMin / scaleMax) * 100));
   const rangeMaxPercent = Math.max(0, Math.min(100, (rangeMax / scaleMax) * 100));
@@ -3727,7 +3754,11 @@ function bindActions() {
     const note = buildFeedNoteForMix(userNote);
 
     try {
-      await saveFeedEntry(normalizedAmountG, note);
+      const savedFeed = await saveFeedEntry(normalizedAmountG, note);
+      todayFedGrams += savedFeed.amountG;
+      todayFeedConsumedGrams += savedFeed.amountG;
+      todayFeedProvidedGrams += savedFeed.amountG;
+      renderFeedOpenStatus();
       document.getElementById('feed-note').value = '';
       feedMixAmounts = {};
       Object.keys(FOOD_PROFILE_DEFINITIONS).forEach((foodKey) => {
@@ -3736,6 +3767,7 @@ function bindActions() {
       });
       renderFeedFoodOptions();
       hideQuickAddBanner();
+      celebratePoodleAfterFeeding();
       await refreshAll();
     } catch (error) {
       alert(translateServerError(error.message));
