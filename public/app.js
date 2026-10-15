@@ -586,7 +586,17 @@ function getPendingFeedMixProgressShare() {
 
 function getFoodReferenceTarget() {
   const activeKeys = getActiveFoodProfileKeys();
-  for (const foodKey of activeKeys) {
+  const platinumDryPriority = [
+    'platinumAdultBeef',
+    'platinumAdultChicken',
+    'platinumPuppyMiniChicken',
+  ];
+  const prioritizedKeys = [
+    ...platinumDryPriority.filter((foodKey) => activeKeys.includes(foodKey)),
+    ...activeKeys.filter((foodKey) => !platinumDryPriority.includes(foodKey)),
+  ];
+
+  for (const foodKey of prioritizedKeys) {
     const gramsPerDay = getFoodRecommendedDailyGrams(foodKey);
     if (gramsPerDay) {
       return { foodKey, gramsPerDay };
