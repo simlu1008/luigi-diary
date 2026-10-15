@@ -402,31 +402,31 @@ function getPlatinumMenuAdultChickenRecommendation() {
     return { errorKey: 'foodMissingTargetWeight' };
   }
 
-  function getPlatinumMenuAdultBeefChickenRecommendation() {
-    const targetWeightKg = appSettings.targetWeightKg;
-    if (!Number.isFinite(targetWeightKg) || targetWeightKg <= 0) {
-      return { errorKey: 'foodMissingTargetWeight' };
-    }
+  const bands = [
+    { maxWeightKg: 4, minPerKg: 40, maxPerKg: 52 },
+    { maxWeightKg: 9, minPerKg: 32, maxPerKg: 42 },
+    { maxWeightKg: 19, minPerKg: 27, maxPerKg: 35 },
+    { maxWeightKg: 39, minPerKg: 22, maxPerKg: 29 },
+    { maxWeightKg: Number.POSITIVE_INFINITY, minPerKg: 19, maxPerKg: 25 },
+  ];
+  const band = bands.find((entry) => targetWeightKg <= entry.maxWeightKg);
+  const minGrams = Math.round(targetWeightKg * band.minPerKg);
+  const maxGrams = Math.round(targetWeightKg * band.maxPerKg);
 
-    const bands = [
-      { maxWeightKg: 4, minPerKg: 40, maxPerKg: 52 },
-      { maxWeightKg: 9, minPerKg: 32, maxPerKg: 42 },
-      { maxWeightKg: 19, minPerKg: 27, maxPerKg: 35 },
-      { maxWeightKg: 39, minPerKg: 22, maxPerKg: 29 },
-      { maxWeightKg: Number.POSITIVE_INFINITY, minPerKg: 19, maxPerKg: 25 },
-    ];
-    const band = bands.find((entry) => targetWeightKg <= entry.maxWeightKg);
-    const minGrams = Math.round(targetWeightKg * band.minPerKg);
-    const maxGrams = Math.round(targetWeightKg * band.maxPerKg);
+  return {
+    gramsPerDay: Math.round((minGrams + maxGrams) / 2),
+    minGrams,
+    maxGrams,
+    targetWeightKg,
+    isAdult: true,
+    isRange: true,
+  };
+}
 
-    return {
-      gramsPerDay: Math.round((minGrams + maxGrams) / 2),
-      minGrams,
-      maxGrams,
-      targetWeightKg,
-      isAdult: true,
-      isRange: true,
-    };
+function getPlatinumMenuAdultBeefChickenRecommendation() {
+  const targetWeightKg = appSettings.targetWeightKg;
+  if (!Number.isFinite(targetWeightKg) || targetWeightKg <= 0) {
+    return { errorKey: 'foodMissingTargetWeight' };
   }
 
   const bands = [
