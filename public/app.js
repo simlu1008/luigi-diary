@@ -65,7 +65,6 @@ const FOOD_PROFILE_DEFINITIONS = {
     enabledInputId: 'settings-food-young-enabled',
     chipInputIds: ['settings-food-young-chip-1', 'settings-food-young-chip-2', 'settings-food-young-chip-3'],
     defaultQuickAddValues: [25, 30, 50],
-    defaultWeightFactorPercent: 100,
     labelKey: 'foodNameYoungPackMini',
     foodType: 'dry',
   },
@@ -74,7 +73,6 @@ const FOOD_PROFILE_DEFINITIONS = {
     enabledInputId: 'settings-food-platinum-enabled',
     chipInputIds: ['settings-food-platinum-chip-1', 'settings-food-platinum-chip-2', 'settings-food-platinum-chip-3'],
     defaultQuickAddValues: [150, 200, 250],
-    defaultWeightFactorPercent: 100,
     labelKey: 'foodNamePlatinumMenuPuppyChicken',
     foodType: 'wet',
   },
@@ -83,7 +81,6 @@ const FOOD_PROFILE_DEFINITIONS = {
     enabledInputId: 'settings-food-platinum-mini-enabled',
     chipInputIds: ['settings-food-platinum-mini-chip-1', 'settings-food-platinum-mini-chip-2', 'settings-food-platinum-mini-chip-3'],
     defaultQuickAddValues: [30, 50, 70],
-    defaultWeightFactorPercent: 100,
     labelKey: 'foodNamePlatinumPuppyMiniChicken',
     foodType: 'dry',
   },
@@ -92,7 +89,6 @@ const FOOD_PROFILE_DEFINITIONS = {
     enabledInputId: 'settings-food-adult-enabled',
     chipInputIds: ['settings-food-adult-chip-1', 'settings-food-adult-chip-2', 'settings-food-adult-chip-3'],
     defaultQuickAddValues: [150, 200, 250],
-    defaultWeightFactorPercent: 100,
     labelKey: 'foodNamePlatinumAdultBeef',
     foodType: 'dry',
   },
@@ -101,7 +97,6 @@ const FOOD_PROFILE_DEFINITIONS = {
     enabledInputId: 'settings-food-adult-chicken-enabled',
     chipInputIds: ['settings-food-adult-chicken-chip-1', 'settings-food-adult-chicken-chip-2', 'settings-food-adult-chicken-chip-3'],
     defaultQuickAddValues: [150, 200, 250],
-    defaultWeightFactorPercent: 100,
     labelKey: 'foodNamePlatinumAdultChicken',
     foodType: 'dry',
   },
@@ -110,7 +105,6 @@ const FOOD_PROFILE_DEFINITIONS = {
     enabledInputId: 'settings-food-menu-adult-chicken-enabled',
     chipInputIds: ['settings-food-menu-adult-chicken-chip-1', 'settings-food-menu-adult-chicken-chip-2', 'settings-food-menu-adult-chicken-chip-3'],
     defaultQuickAddValues: [150, 200, 250],
-    defaultWeightFactorPercent: 100,
     labelKey: 'foodNamePlatinumMenuAdultChicken',
     foodType: 'wet',
   },
@@ -119,7 +113,6 @@ const FOOD_PROFILE_DEFINITIONS = {
     enabledInputId: 'settings-food-menu-adult-beef-chicken-enabled',
     chipInputIds: ['settings-food-menu-adult-beef-chicken-chip-1', 'settings-food-menu-adult-beef-chicken-chip-2', 'settings-food-menu-adult-beef-chicken-chip-3'],
     defaultQuickAddValues: [150, 200, 250],
-    defaultWeightFactorPercent: 100,
     labelKey: 'foodNamePlatinumMenuAdultBeefChicken',
     foodType: 'wet',
   },
@@ -130,47 +123,32 @@ function createDefaultFoodProfiles() {
     youngPackMini: {
       enabled: true,
       quickAddValues: [...FOOD_PROFILE_DEFINITIONS.youngPackMini.defaultQuickAddValues],
-      weightFactorPercent: FOOD_PROFILE_DEFINITIONS.youngPackMini.defaultWeightFactorPercent,
     },
     platinumMenuPuppyChicken: {
       enabled: false,
       quickAddValues: [...FOOD_PROFILE_DEFINITIONS.platinumMenuPuppyChicken.defaultQuickAddValues],
-      weightFactorPercent: FOOD_PROFILE_DEFINITIONS.platinumMenuPuppyChicken.defaultWeightFactorPercent,
     },
     platinumPuppyMiniChicken: {
       enabled: false,
       quickAddValues: [...FOOD_PROFILE_DEFINITIONS.platinumPuppyMiniChicken.defaultQuickAddValues],
-      weightFactorPercent: FOOD_PROFILE_DEFINITIONS.platinumPuppyMiniChicken.defaultWeightFactorPercent,
     },
     platinumAdultBeef: {
       enabled: false,
       quickAddValues: [...FOOD_PROFILE_DEFINITIONS.platinumAdultBeef.defaultQuickAddValues],
-      weightFactorPercent: FOOD_PROFILE_DEFINITIONS.platinumAdultBeef.defaultWeightFactorPercent,
     },
     platinumAdultChicken: {
       enabled: false,
       quickAddValues: [...FOOD_PROFILE_DEFINITIONS.platinumAdultChicken.defaultQuickAddValues],
-      weightFactorPercent: FOOD_PROFILE_DEFINITIONS.platinumAdultChicken.defaultWeightFactorPercent,
     },
     platinumMenuAdultChicken: {
       enabled: false,
       quickAddValues: [...FOOD_PROFILE_DEFINITIONS.platinumMenuAdultChicken.defaultQuickAddValues],
-      weightFactorPercent: FOOD_PROFILE_DEFINITIONS.platinumMenuAdultChicken.defaultWeightFactorPercent,
     },
     platinumMenuAdultBeefChicken: {
       enabled: false,
       quickAddValues: [...FOOD_PROFILE_DEFINITIONS.platinumMenuAdultBeefChicken.defaultQuickAddValues],
-      weightFactorPercent: FOOD_PROFILE_DEFINITIONS.platinumMenuAdultBeefChicken.defaultWeightFactorPercent,
     },
   };
-}
-
-function sanitizeWeightFactor(value, fallbackValue) {
-  const parsed = Number(value);
-  if (Number.isFinite(parsed) && parsed > 0) {
-    return Math.round(parsed);
-  }
-  return fallbackValue;
 }
 
 function sanitizeCandySharePercent(value, fallbackValue = 0) {
@@ -204,7 +182,6 @@ function normalizeFoodProfiles(rawProfiles) {
     normalized[key] = {
       enabled: rawProfile?.enabled === true,
       quickAddValues: sanitizeQuickAddValues(rawProfile?.quickAddValues, definition.defaultQuickAddValues),
-      weightFactorPercent: sanitizeWeightFactor(rawProfile?.weightFactorPercent, definition.defaultWeightFactorPercent),
     };
   }
 
@@ -354,6 +331,20 @@ function getPlatinumPuppyMiniChickenRecommendation() {
   return getFoodRecommendation(FOOD_CONFIGS.platinumPuppyMiniChicken);
 }
 
+function getManufacturerRange(config, targetWeightKg, tableRow) {
+  const weights = config.weights;
+  const upperIndex = Math.max(1, weights.findIndex((weight) => targetWeightKg <= weight));
+  const normalizedUpperIndex = upperIndex === 1 && targetWeightKg > weights[1]
+    ? weights.length - 1
+    : upperIndex;
+  const lowerWeightKg = weights[normalizedUpperIndex - 1];
+  const upperWeightKg = weights[normalizedUpperIndex];
+  return {
+    minGrams: tableRow[lowerWeightKg],
+    maxGrams: tableRow[upperWeightKg],
+  };
+}
+
 function getPlatinumAdultBeefRecommendation() {
   const config = FOOD_CONFIGS.platinumAdultBeef;
   const targetWeightKg = appSettings.targetWeightKg;
@@ -365,8 +356,10 @@ function getPlatinumAdultBeefRecommendation() {
   }
 
   const interpolation = getInterpolatedGrams(config.weights, config.table.adult, targetWeightKg);
+  const manufacturerRange = getManufacturerRange(config, targetWeightKg, config.table.adult);
   return {
     gramsPerDay: interpolation.gramsPerDay,
+    ...manufacturerRange,
     targetWeightKg,
     isAdult: true,
     isInterpolated: interpolation.isInterpolated,
@@ -386,8 +379,10 @@ function getPlatinumAdultChickenRecommendation() {
   }
 
   const interpolation = getInterpolatedGrams(config.weights, config.table.adult, targetWeightKg);
+  const manufacturerRange = getManufacturerRange(config, targetWeightKg, config.table.adult);
   return {
     gramsPerDay: interpolation.gramsPerDay,
+    ...manufacturerRange,
     targetWeightKg,
     isAdult: true,
     isInterpolated: interpolation.isInterpolated,
@@ -473,6 +468,8 @@ function updateFoodRecommendationCard(summaryElementId, amountElementId, recomme
     : recommendation.isAdult
     ? t('foodRecommendationAdult', {
       grams: recommendation.gramsPerDay,
+      minGrams: recommendation.minGrams ?? recommendation.gramsPerDay,
+      maxGrams: recommendation.maxGrams ?? recommendation.gramsPerDay,
       targetWeight: targetWeightText,
     })
     : recommendation.isInterpolated
@@ -597,9 +594,10 @@ function getFoodReferenceTarget() {
   ];
 
   for (const foodKey of prioritizedKeys) {
-    const gramsPerDay = getFoodRecommendedDailyGrams(foodKey);
-    if (gramsPerDay) {
-      return { foodKey, gramsPerDay };
+    const recommendation = getFoodRecommendationByKey(foodKey);
+    const gramsPerDay = Number(recommendation?.gramsPerDay);
+    if (!recommendation?.errorKey && Number.isFinite(gramsPerDay) && gramsPerDay > 0) {
+      return { foodKey, ...recommendation, gramsPerDay };
     }
   }
   return null;
@@ -608,6 +606,18 @@ function getFoodReferenceTarget() {
 function getEffectiveDailyTargetGrams() {
   const referenceTarget = getFoodReferenceTarget();
   return referenceTarget?.gramsPerDay || null;
+}
+
+function getEffectiveDailyRangeGrams() {
+  const referenceTarget = getFoodReferenceTarget();
+  if (!referenceTarget) return null;
+  const factor = getFoodTargetFraction();
+  const minGrams = Math.round(Number(referenceTarget.minGrams || referenceTarget.gramsPerDay) * factor);
+  const maxGrams = Math.round(Number(referenceTarget.maxGrams || referenceTarget.gramsPerDay) * factor);
+  return {
+    minGrams: Math.min(minGrams, maxGrams),
+    maxGrams: Math.max(minGrams, maxGrams),
+  };
 }
 
 function getCandySharePercent() {
@@ -1023,7 +1033,7 @@ const TRANSLATIONS = {
     statusNoAlone: 'Aktuell nicht alleine.',
     statusLastPipi: 'Letztes Pipi: {since}',
     statusLastPupu: 'Letztes Pupu: {since}',
-    statusFeedOpen: 'Futter offen heute: {remaining} g (gegessen {fed}/{target} g · bereitgestellt {provided} g) · Referenz: {referenceFood}',
+    statusFeedOpen: 'Futter offen heute: {remaining} g (gegessen {fed} g · Ziel {target} g · Bereich {rangeMin}–{rangeMax} g · bereitgestellt {provided} g) · Referenz: {referenceFood}',
     statusFeedNoTarget: 'Futter heute: gegessen {fed} g · bereitgestellt {provided} g',
     statusNever: 'noch kein Eintrag',
     timeJustNow: 'gerade eben',
@@ -1083,7 +1093,6 @@ const TRANSLATIONS = {
     settingsFoodAdultChickenEnabledLabel: 'PLATINUM Adult Chicken wird aktuell gefüttert',
     settingsFoodMenuAdultChickenEnabledLabel: 'PLATINUM Menu Adult Chicken wird aktuell gefüttert',
     settingsFoodMenuAdultBeefChickenEnabledLabel: 'PLATINUM Menu Adult Beef + Chicken wird aktuell gefüttert',
-    settingsFoodWeightFactorLabel: 'Anrechnungsfaktor (%)',
     settingsFoodChip1Label: 'Quick Add 1 (g)',
     settingsFoodChip2Label: 'Quick Add 2 (g)',
     settingsFoodChip3Label: 'Quick Add 3 (g)',
@@ -1094,7 +1103,6 @@ const TRANSLATIONS = {
     settingsWeightInvalid: 'Bitte ein gültiges Gewicht eingeben (> 0).',
     settingsTargetWeightInvalid: 'Bitte ein gültiges Zielgewicht eingeben (> 0).',
     settingsFoodChipInvalid: 'Bitte für jede aktive Futtersorte drei gültige Quick-Add-Werte (> 0) eingeben.',
-    settingsFoodWeightFactorInvalid: 'Bitte pro aktiver Futtersorte einen gültigen Anrechnungsfaktor (> 0) eingeben.',
     foodSummaryPending: 'Menge offen',
     foodSummaryGrams: '{grams} g/Tag',
     foodMissingBirthDate: 'Bitte zuerst ein gültiges Geburtsdatum in den Einstellungen angeben.',
@@ -1107,7 +1115,7 @@ const TRANSLATIONS = {
     foodRecommendationRange: 'Empfohlene Tagesmenge: {minGrams}–{maxGrams} g (bei {targetWeight} kg Körpergewicht).',
     foodRecommendationExact: 'Empfohlene Tagesmenge: {grams} g (Alter: {age} Monate, Zielgewicht: {targetWeight} kg).',
     foodRecommendationInterpolated: 'Empfohlene Tagesmenge: {grams} g (Alter: {age} Monate, Zielgewicht: {targetWeight} kg; interpoliert zwischen {lowerWeight} kg und {upperWeight} kg).',
-    foodRecommendationAdult: 'Empfohlene Tagesmenge: {grams} g (Zielgewicht: {targetWeight} kg).',
+    foodRecommendationAdult: 'Herstellerbereich: {minGrams}–{maxGrams} g/Tag · Tagesziel: {grams} g (Zielgewicht: {targetWeight} kg).',
     quickAddSaved: '✓ {grams} g gespeichert',
     quickAddUndo: 'Rückgängig',
     quickAddUndone: 'Fütterung rückgängig gemacht.',
@@ -1262,7 +1270,7 @@ const TRANSLATIONS = {
     statusNoAlone: 'Currently not alone.',
     statusLastPipi: 'Last pee: {since}',
     statusLastPupu: 'Last poop: {since}',
-    statusFeedOpen: 'Feed remaining today: {remaining} g (eaten {fed}/{target} g · provided {provided} g) · reference: {referenceFood}',
+    statusFeedOpen: 'Feed remaining today: {remaining} g (eaten {fed} g · target {target} g · range {rangeMin}–{rangeMax} g · provided {provided} g) · reference: {referenceFood}',
     statusFeedNoTarget: 'Feed today: eaten {fed} g · provided {provided} g',
     statusNever: 'no entry yet',
     timeJustNow: 'just now',
@@ -1322,7 +1330,6 @@ const TRANSLATIONS = {
     settingsFoodAdultChickenEnabledLabel: 'PLATINUM Adult Chicken is currently fed',
     settingsFoodMenuAdultChickenEnabledLabel: 'PLATINUM Menu Adult Chicken is currently fed',
     settingsFoodMenuAdultBeefChickenEnabledLabel: 'PLATINUM Menu Adult Beef + Chicken is currently fed',
-    settingsFoodWeightFactorLabel: 'Weighting factor (%)',
     settingsFoodChip1Label: 'Quick add 1 (g)',
     settingsFoodChip2Label: 'Quick add 2 (g)',
     settingsFoodChip3Label: 'Quick add 3 (g)',
@@ -1335,7 +1342,6 @@ const TRANSLATIONS = {
     settingsWeightInvalid: 'Please enter a valid weight (> 0).',
     settingsTargetWeightInvalid: 'Please enter a valid target weight (> 0).',
     settingsFoodChipInvalid: 'Please enter three valid quick-add values (> 0) for each active food type.',
-    settingsFoodWeightFactorInvalid: 'Please enter a valid weighting factor (> 0) for each active food type.',
     foodSummaryPending: 'Amount pending',
     foodSummaryGrams: '{grams} g/day',
     foodMissingBirthDate: 'Please provide a valid birth date in settings first.',
@@ -1349,7 +1355,7 @@ const TRANSLATIONS = {
     walkRecordingOffHint: 'When walk recording is off, you can record pee and poop directly.',
     foodRecommendationExact: 'Recommended daily amount: {grams} g (Age: {age} months, Target weight: {targetWeight} kg).',
     foodRecommendationInterpolated: 'Recommended daily amount: {grams} g (Age: {age} months, Target weight: {targetWeight} kg; interpolated between {lowerWeight} kg and {upperWeight} kg).',
-    foodRecommendationAdult: 'Recommended daily amount: {grams} g (Target weight: {targetWeight} kg).',
+    foodRecommendationAdult: 'Manufacturer range: {minGrams}–{maxGrams} g/day · daily target: {grams} g (Target weight: {targetWeight} kg).',
     quickAddSaved: '✓ {grams} g saved',
     quickAddUndo: 'Undo',
     quickAddUndone: 'Feed removed.',
@@ -1533,12 +1539,6 @@ function applyStaticTranslations() {
   setText('settings-food-adult-chicken-enabled-label', t('settingsFoodAdultChickenEnabledLabel'));
   setText('settings-food-menu-adult-chicken-enabled-label', t('settingsFoodMenuAdultChickenEnabledLabel'));
   setText('settings-food-menu-adult-beef-chicken-enabled-label', t('settingsFoodMenuAdultBeefChickenEnabledLabel'));
-  setText('settings-food-young-weight-factor-label', t('settingsFoodWeightFactorLabel'));
-  setText('settings-food-platinum-weight-factor-label', t('settingsFoodWeightFactorLabel'));
-  setText('settings-food-platinum-mini-weight-factor-label', t('settingsFoodWeightFactorLabel'));
-  setText('settings-food-adult-weight-factor-label', t('settingsFoodWeightFactorLabel'));
-  setText('settings-food-adult-chicken-weight-factor-label', t('settingsFoodWeightFactorLabel'));
-  setText('settings-food-menu-adult-chicken-weight-factor-label', t('settingsFoodWeightFactorLabel'));
   setText('settings-food-young-chip-1-label', t('settingsFoodChip1Label'));
   setText('settings-food-young-chip-2-label', t('settingsFoodChip2Label'));
   setText('settings-food-young-chip-3-label', t('settingsFoodChip3Label'));
@@ -1557,7 +1557,6 @@ function applyStaticTranslations() {
   setText('settings-food-menu-adult-chicken-chip-1-label', t('settingsFoodChip1Label'));
   setText('settings-food-menu-adult-chicken-chip-2-label', t('settingsFoodChip2Label'));
   setText('settings-food-menu-adult-chicken-chip-3-label', t('settingsFoodChip3Label'));
-  setText('settings-food-menu-adult-beef-chicken-weight-factor-label', t('settingsFoodWeightFactorLabel'));
   setText('settings-food-menu-adult-beef-chicken-chip-1-label', t('settingsFoodChip1Label'));
   setText('settings-food-menu-adult-beef-chicken-chip-2-label', t('settingsFoodChip2Label'));
   setText('settings-food-menu-adult-beef-chicken-chip-3-label', t('settingsFoodChip3Label'));
@@ -1820,37 +1819,30 @@ function applySettingsToForm() {
   const quickAddToggle = document.getElementById('settings-enable-quick-add');
   const walkRecordingToggle = document.getElementById('settings-enable-walk-recording');
   const settingsFoodYoungEnabled = document.getElementById('settings-food-young-enabled');
-  const settingsFoodYoungWeightFactor = document.getElementById('settings-food-young-weight-factor');
   const settingsFoodYoungChip1 = document.getElementById('settings-food-young-chip-1');
   const settingsFoodYoungChip2 = document.getElementById('settings-food-young-chip-2');
   const settingsFoodYoungChip3 = document.getElementById('settings-food-young-chip-3');
   const settingsFoodPlatinumEnabled = document.getElementById('settings-food-platinum-enabled');
-  const settingsFoodPlatinumWeightFactor = document.getElementById('settings-food-platinum-weight-factor');
   const settingsFoodPlatinumChip1 = document.getElementById('settings-food-platinum-chip-1');
   const settingsFoodPlatinumChip2 = document.getElementById('settings-food-platinum-chip-2');
   const settingsFoodPlatinumChip3 = document.getElementById('settings-food-platinum-chip-3');
   const settingsFoodPlatinumMiniEnabled = document.getElementById('settings-food-platinum-mini-enabled');
-  const settingsFoodPlatinumMiniWeightFactor = document.getElementById('settings-food-platinum-mini-weight-factor');
   const settingsFoodPlatinumMiniChip1 = document.getElementById('settings-food-platinum-mini-chip-1');
   const settingsFoodPlatinumMiniChip2 = document.getElementById('settings-food-platinum-mini-chip-2');
   const settingsFoodPlatinumMiniChip3 = document.getElementById('settings-food-platinum-mini-chip-3');
   const settingsFoodAdultEnabled = document.getElementById('settings-food-adult-enabled');
-  const settingsFoodAdultWeightFactor = document.getElementById('settings-food-adult-weight-factor');
   const settingsFoodAdultChip1 = document.getElementById('settings-food-adult-chip-1');
   const settingsFoodAdultChip2 = document.getElementById('settings-food-adult-chip-2');
   const settingsFoodAdultChip3 = document.getElementById('settings-food-adult-chip-3');
   const settingsFoodAdultChickenEnabled = document.getElementById('settings-food-adult-chicken-enabled');
-  const settingsFoodAdultChickenWeightFactor = document.getElementById('settings-food-adult-chicken-weight-factor');
   const settingsFoodAdultChickenChip1 = document.getElementById('settings-food-adult-chicken-chip-1');
   const settingsFoodAdultChickenChip2 = document.getElementById('settings-food-adult-chicken-chip-2');
   const settingsFoodAdultChickenChip3 = document.getElementById('settings-food-adult-chicken-chip-3');
   const settingsFoodMenuAdultChickenEnabled = document.getElementById('settings-food-menu-adult-chicken-enabled');
-  const settingsFoodMenuAdultChickenWeightFactor = document.getElementById('settings-food-menu-adult-chicken-weight-factor');
   const settingsFoodMenuAdultChickenChip1 = document.getElementById('settings-food-menu-adult-chicken-chip-1');
   const settingsFoodMenuAdultChickenChip2 = document.getElementById('settings-food-menu-adult-chicken-chip-2');
   const settingsFoodMenuAdultChickenChip3 = document.getElementById('settings-food-menu-adult-chicken-chip-3');
   const settingsFoodMenuAdultBeefChickenEnabled = document.getElementById('settings-food-menu-adult-beef-chicken-enabled');
-  const settingsFoodMenuAdultBeefChickenWeightFactor = document.getElementById('settings-food-menu-adult-beef-chicken-weight-factor');
   const settingsFoodMenuAdultBeefChickenChip1 = document.getElementById('settings-food-menu-adult-beef-chicken-chip-1');
   const settingsFoodMenuAdultBeefChickenChip2 = document.getElementById('settings-food-menu-adult-beef-chicken-chip-2');
   const settingsFoodMenuAdultBeefChickenChip3 = document.getElementById('settings-food-menu-adult-beef-chicken-chip-3');
@@ -1872,37 +1864,30 @@ function applySettingsToForm() {
   if (quickAddToggle) quickAddToggle.checked = appSettings.quickAddEnabled;
   if (walkRecordingToggle) walkRecordingToggle.checked = appSettings.walkRecordingEnabled !== false;
   if (settingsFoodYoungEnabled) settingsFoodYoungEnabled.checked = youngProfile?.enabled === true;
-  if (settingsFoodYoungWeightFactor) settingsFoodYoungWeightFactor.value = String(youngProfile?.weightFactorPercent ?? 100);
   if (settingsFoodYoungChip1) settingsFoodYoungChip1.value = String(youngProfile?.quickAddValues?.[0] ?? 25);
   if (settingsFoodYoungChip2) settingsFoodYoungChip2.value = String(youngProfile?.quickAddValues?.[1] ?? 30);
   if (settingsFoodYoungChip3) settingsFoodYoungChip3.value = String(youngProfile?.quickAddValues?.[2] ?? 50);
   if (settingsFoodPlatinumEnabled) settingsFoodPlatinumEnabled.checked = platinumProfile?.enabled === true;
-  if (settingsFoodPlatinumWeightFactor) settingsFoodPlatinumWeightFactor.value = String(platinumProfile?.weightFactorPercent ?? 100);
   if (settingsFoodPlatinumChip1) settingsFoodPlatinumChip1.value = String(platinumProfile?.quickAddValues?.[0] ?? 150);
   if (settingsFoodPlatinumChip2) settingsFoodPlatinumChip2.value = String(platinumProfile?.quickAddValues?.[1] ?? 200);
   if (settingsFoodPlatinumChip3) settingsFoodPlatinumChip3.value = String(platinumProfile?.quickAddValues?.[2] ?? 250);
   if (settingsFoodPlatinumMiniEnabled) settingsFoodPlatinumMiniEnabled.checked = platinumMiniProfile?.enabled === true;
-  if (settingsFoodPlatinumMiniWeightFactor) settingsFoodPlatinumMiniWeightFactor.value = String(platinumMiniProfile?.weightFactorPercent ?? 100);
   if (settingsFoodPlatinumMiniChip1) settingsFoodPlatinumMiniChip1.value = String(platinumMiniProfile?.quickAddValues?.[0] ?? 30);
   if (settingsFoodPlatinumMiniChip2) settingsFoodPlatinumMiniChip2.value = String(platinumMiniProfile?.quickAddValues?.[1] ?? 50);
   if (settingsFoodPlatinumMiniChip3) settingsFoodPlatinumMiniChip3.value = String(platinumMiniProfile?.quickAddValues?.[2] ?? 70);
   if (settingsFoodAdultEnabled) settingsFoodAdultEnabled.checked = adultProfile?.enabled === true;
-  if (settingsFoodAdultWeightFactor) settingsFoodAdultWeightFactor.value = String(adultProfile?.weightFactorPercent ?? 100);
   if (settingsFoodAdultChip1) settingsFoodAdultChip1.value = String(adultProfile?.quickAddValues?.[0] ?? 150);
   if (settingsFoodAdultChip2) settingsFoodAdultChip2.value = String(adultProfile?.quickAddValues?.[1] ?? 200);
   if (settingsFoodAdultChip3) settingsFoodAdultChip3.value = String(adultProfile?.quickAddValues?.[2] ?? 250);
   if (settingsFoodAdultChickenEnabled) settingsFoodAdultChickenEnabled.checked = adultChickenProfile?.enabled === true;
-  if (settingsFoodAdultChickenWeightFactor) settingsFoodAdultChickenWeightFactor.value = String(adultChickenProfile?.weightFactorPercent ?? 100);
   if (settingsFoodAdultChickenChip1) settingsFoodAdultChickenChip1.value = String(adultChickenProfile?.quickAddValues?.[0] ?? 150);
   if (settingsFoodAdultChickenChip2) settingsFoodAdultChickenChip2.value = String(adultChickenProfile?.quickAddValues?.[1] ?? 200);
   if (settingsFoodAdultChickenChip3) settingsFoodAdultChickenChip3.value = String(adultChickenProfile?.quickAddValues?.[2] ?? 250);
   if (settingsFoodMenuAdultChickenEnabled) settingsFoodMenuAdultChickenEnabled.checked = menuAdultChickenProfile?.enabled === true;
-  if (settingsFoodMenuAdultChickenWeightFactor) settingsFoodMenuAdultChickenWeightFactor.value = String(menuAdultChickenProfile?.weightFactorPercent ?? 100);
   if (settingsFoodMenuAdultChickenChip1) settingsFoodMenuAdultChickenChip1.value = String(menuAdultChickenProfile?.quickAddValues?.[0] ?? 150);
   if (settingsFoodMenuAdultChickenChip2) settingsFoodMenuAdultChickenChip2.value = String(menuAdultChickenProfile?.quickAddValues?.[1] ?? 200);
   if (settingsFoodMenuAdultChickenChip3) settingsFoodMenuAdultChickenChip3.value = String(menuAdultChickenProfile?.quickAddValues?.[2] ?? 250);
   if (settingsFoodMenuAdultBeefChickenEnabled) settingsFoodMenuAdultBeefChickenEnabled.checked = menuAdultBeefChickenProfile?.enabled === true;
-  if (settingsFoodMenuAdultBeefChickenWeightFactor) settingsFoodMenuAdultBeefChickenWeightFactor.value = String(menuAdultBeefChickenProfile?.weightFactorPercent ?? 100);
   if (settingsFoodMenuAdultBeefChickenChip1) settingsFoodMenuAdultBeefChickenChip1.value = String(menuAdultBeefChickenProfile?.quickAddValues?.[0] ?? 150);
   if (settingsFoodMenuAdultBeefChickenChip2) settingsFoodMenuAdultBeefChickenChip2.value = String(menuAdultBeefChickenProfile?.quickAddValues?.[1] ?? 200);
   if (settingsFoodMenuAdultBeefChickenChip3) settingsFoodMenuAdultBeefChickenChip3.value = String(menuAdultBeefChickenProfile?.quickAddValues?.[2] ?? 250);
@@ -2114,10 +2099,27 @@ function renderFeedOpenStatus() {
   const todayFeedProgressWrapEl = document.getElementById('today-feed-progress-wrap');
   const todayFeedProgressBarEl = document.getElementById('today-feed-progress-bar');
   const todayFeedProgressTextEl = document.getElementById('today-feed-progress-text');
+  const progressElements = [
+    {
+      bar: feedProgressBarEl,
+      track: feedProgressBarEl?.parentElement,
+      rangeMin: document.getElementById('feed-progress-range-min'),
+      rangeMax: document.getElementById('feed-progress-range-max'),
+      target: document.getElementById('feed-progress-target'),
+    },
+    {
+      bar: todayFeedProgressBarEl,
+      track: todayFeedProgressBarEl?.parentElement,
+      rangeMin: document.getElementById('today-feed-range-min'),
+      rangeMax: document.getElementById('today-feed-range-max'),
+      target: document.getElementById('today-feed-target'),
+    },
+  ];
   if (!feedOpenStatusEl && !todayFeedOpenStatusEl) return;
 
   const fullTarget = Math.max(0, Number(getEffectiveDailyTargetGrams() || 0));
   const target = Math.round(fullTarget * getFoodTargetFraction());
+  const targetRange = getEffectiveDailyRangeGrams();
   const fed = Math.max(0, todayFeedConsumedGrams || todayFedGrams || 0);
   const provided = Math.max(0, todayFeedProvidedGrams || 0);
   const statusTextNoTarget = t('statusFeedNoTarget', { fed, provided });
@@ -2135,17 +2137,39 @@ function renderFeedOpenStatus() {
   }
 
   const remaining = Math.max(0, target - fed);
+  const rangeMin = targetRange?.minGrams ?? target;
+  const rangeMax = targetRange?.maxGrams ?? target;
+  const status = fed < rangeMin ? 'is-below-range' : fed > rangeMax ? 'is-over-range' : 'is-in-range';
   const statusTextOpen = t('statusFeedOpen', {
     remaining,
     fed,
     provided,
     target,
+    rangeMin,
+    rangeMax,
     referenceFood: getFeedReferenceLabel(),
   });
   if (feedOpenStatusEl) feedOpenStatusEl.textContent = statusTextOpen;
   if (todayFeedOpenStatusEl) todayFeedOpenStatusEl.textContent = statusTextOpen;
 
-  const progressPercent = Math.max(0, Math.min(100, Math.round((fed / target) * 100)));
+  const scaleMax = Math.max(rangeMax * 1.25, fed * 1.1, target, 1);
+  const progressPercent = Math.max(0, Math.min(100, Math.round((fed / scaleMax) * 100)));
+  const targetPercent = Math.max(0, Math.min(100, (target / scaleMax) * 100));
+  const rangeMinPercent = Math.max(0, Math.min(100, (rangeMin / scaleMax) * 100));
+  const rangeMaxPercent = Math.max(0, Math.min(100, (rangeMax / scaleMax) * 100));
+  progressElements.forEach(({ bar, track, rangeMin: minMarker, rangeMax: maxMarker, target: targetMarker }) => {
+    if (bar) {
+      bar.classList.remove('is-below-range', 'is-in-range', 'is-over-range');
+      bar.classList.add(status);
+    }
+    if (track) {
+      track.classList.remove('is-below-range', 'is-in-range', 'is-over-range');
+      track.classList.add(status);
+    }
+    if (minMarker) minMarker.style.left = `${rangeMinPercent}%`;
+    if (maxMarker) maxMarker.style.left = `${rangeMaxPercent}%`;
+    if (targetMarker) targetMarker.style.left = `${targetPercent}%`;
+  });
   if (feedProgressWrapEl) {
     feedProgressWrapEl.style.display = 'grid';
   }
@@ -3245,37 +3269,30 @@ function bindActions() {
   const settingsQuickAddToggle = document.getElementById('settings-enable-quick-add');
   const settingsWalkRecordingToggle = document.getElementById('settings-enable-walk-recording');
   const settingsFoodYoungEnabled = document.getElementById('settings-food-young-enabled');
-  const settingsFoodYoungWeightFactor = document.getElementById('settings-food-young-weight-factor');
   const settingsFoodYoungChip1 = document.getElementById('settings-food-young-chip-1');
   const settingsFoodYoungChip2 = document.getElementById('settings-food-young-chip-2');
   const settingsFoodYoungChip3 = document.getElementById('settings-food-young-chip-3');
   const settingsFoodPlatinumEnabled = document.getElementById('settings-food-platinum-enabled');
-  const settingsFoodPlatinumWeightFactor = document.getElementById('settings-food-platinum-weight-factor');
   const settingsFoodPlatinumChip1 = document.getElementById('settings-food-platinum-chip-1');
   const settingsFoodPlatinumChip2 = document.getElementById('settings-food-platinum-chip-2');
   const settingsFoodPlatinumChip3 = document.getElementById('settings-food-platinum-chip-3');
   const settingsFoodPlatinumMiniEnabled = document.getElementById('settings-food-platinum-mini-enabled');
-  const settingsFoodPlatinumMiniWeightFactor = document.getElementById('settings-food-platinum-mini-weight-factor');
   const settingsFoodPlatinumMiniChip1 = document.getElementById('settings-food-platinum-mini-chip-1');
   const settingsFoodPlatinumMiniChip2 = document.getElementById('settings-food-platinum-mini-chip-2');
   const settingsFoodPlatinumMiniChip3 = document.getElementById('settings-food-platinum-mini-chip-3');
   const settingsFoodAdultEnabled = document.getElementById('settings-food-adult-enabled');
-  const settingsFoodAdultWeightFactor = document.getElementById('settings-food-adult-weight-factor');
   const settingsFoodAdultChip1 = document.getElementById('settings-food-adult-chip-1');
   const settingsFoodAdultChip2 = document.getElementById('settings-food-adult-chip-2');
   const settingsFoodAdultChip3 = document.getElementById('settings-food-adult-chip-3');
   const settingsFoodAdultChickenEnabled = document.getElementById('settings-food-adult-chicken-enabled');
-  const settingsFoodAdultChickenWeightFactor = document.getElementById('settings-food-adult-chicken-weight-factor');
   const settingsFoodAdultChickenChip1 = document.getElementById('settings-food-adult-chicken-chip-1');
   const settingsFoodAdultChickenChip2 = document.getElementById('settings-food-adult-chicken-chip-2');
   const settingsFoodAdultChickenChip3 = document.getElementById('settings-food-adult-chicken-chip-3');
   const settingsFoodMenuAdultChickenEnabled = document.getElementById('settings-food-menu-adult-chicken-enabled');
-  const settingsFoodMenuAdultChickenWeightFactor = document.getElementById('settings-food-menu-adult-chicken-weight-factor');
   const settingsFoodMenuAdultChickenChip1 = document.getElementById('settings-food-menu-adult-chicken-chip-1');
   const settingsFoodMenuAdultChickenChip2 = document.getElementById('settings-food-menu-adult-chicken-chip-2');
   const settingsFoodMenuAdultChickenChip3 = document.getElementById('settings-food-menu-adult-chicken-chip-3');
   const settingsFoodMenuAdultBeefChickenEnabled = document.getElementById('settings-food-menu-adult-beef-chicken-enabled');
-  const settingsFoodMenuAdultBeefChickenWeightFactor = document.getElementById('settings-food-menu-adult-beef-chicken-weight-factor');
   const settingsFoodMenuAdultBeefChickenChip1 = document.getElementById('settings-food-menu-adult-beef-chicken-chip-1');
   const settingsFoodMenuAdultBeefChickenChip2 = document.getElementById('settings-food-menu-adult-beef-chicken-chip-2');
   const settingsFoodMenuAdultBeefChickenChip3 = document.getElementById('settings-food-menu-adult-beef-chicken-chip-3');
@@ -3490,13 +3507,6 @@ function bindActions() {
       Number(settingsFoodMenuAdultBeefChickenChip2?.value ?? NaN),
       Number(settingsFoodMenuAdultBeefChickenChip3?.value ?? NaN),
     ];
-    const nextYoungWeightFactor = Number(settingsFoodYoungWeightFactor?.value ?? NaN);
-    const nextPlatinumWeightFactor = Number(settingsFoodPlatinumWeightFactor?.value ?? NaN);
-    const nextPlatinumMiniWeightFactor = Number(settingsFoodPlatinumMiniWeightFactor?.value ?? NaN);
-    const nextAdultWeightFactor = Number(settingsFoodAdultWeightFactor?.value ?? NaN);
-    const nextAdultChickenWeightFactor = Number(settingsFoodAdultChickenWeightFactor?.value ?? NaN);
-    const nextMenuAdultChickenWeightFactor = Number(settingsFoodMenuAdultChickenWeightFactor?.value ?? NaN);
-    const nextMenuAdultBeefChickenWeightFactor = Number(settingsFoodMenuAdultBeefChickenWeightFactor?.value ?? NaN);
     const nextWalkRecordingEnabled = settingsWalkRecordingToggle?.checked !== false;
 
     if (nextBirthDate) {
@@ -3532,81 +3542,46 @@ function bindActions() {
       return;
     }
 
-    const isValidFactor = (value) => Number.isFinite(value) && value > 0;
-    if (
-      (settingsFoodYoungEnabled?.checked && !isValidFactor(nextYoungWeightFactor))
-      || (settingsFoodPlatinumEnabled?.checked && !isValidFactor(nextPlatinumWeightFactor))
-      || (settingsFoodPlatinumMiniEnabled?.checked && !isValidFactor(nextPlatinumMiniWeightFactor))
-      || (settingsFoodAdultEnabled?.checked && !isValidFactor(nextAdultWeightFactor))
-      || (settingsFoodAdultChickenEnabled?.checked && !isValidFactor(nextAdultChickenWeightFactor))
-      || (settingsFoodMenuAdultChickenEnabled?.checked && !isValidFactor(nextMenuAdultChickenWeightFactor))
-      || (settingsFoodMenuAdultBeefChickenEnabled?.checked && !isValidFactor(nextMenuAdultBeefChickenWeightFactor))
-    ) {
-      if (settingsResultEl) settingsResultEl.textContent = t('settingsFoodWeightFactorInvalid');
-      return;
-    }
-
     const fallbackProfiles = appSettings.foodProfiles || createDefaultFoodProfiles();
     const foodProfiles = {
       youngPackMini: {
         enabled: settingsFoodYoungEnabled?.checked === true,
-        weightFactorPercent: isValidFactor(nextYoungWeightFactor)
-          ? Math.round(nextYoungWeightFactor)
-          : (fallbackProfiles.youngPackMini.weightFactorPercent ?? 100),
         quickAddValues: isValidChipSet(nextYoungValues)
           ? nextYoungValues.map((value) => Math.floor(value))
           : [...fallbackProfiles.youngPackMini.quickAddValues],
       },
       platinumMenuPuppyChicken: {
         enabled: settingsFoodPlatinumEnabled?.checked === true,
-        weightFactorPercent: isValidFactor(nextPlatinumWeightFactor)
-          ? Math.round(nextPlatinumWeightFactor)
-          : (fallbackProfiles.platinumMenuPuppyChicken.weightFactorPercent ?? 100),
         quickAddValues: isValidChipSet(nextPlatinumValues)
           ? nextPlatinumValues.map((value) => Math.floor(value))
           : [...fallbackProfiles.platinumMenuPuppyChicken.quickAddValues],
       },
       platinumPuppyMiniChicken: {
         enabled: settingsFoodPlatinumMiniEnabled?.checked === true,
-        weightFactorPercent: isValidFactor(nextPlatinumMiniWeightFactor)
-          ? Math.round(nextPlatinumMiniWeightFactor)
-          : (fallbackProfiles.platinumPuppyMiniChicken.weightFactorPercent ?? 100),
         quickAddValues: isValidChipSet(nextPlatinumMiniValues)
           ? nextPlatinumMiniValues.map((value) => Math.floor(value))
           : [...fallbackProfiles.platinumPuppyMiniChicken.quickAddValues],
       },
       platinumAdultBeef: {
         enabled: settingsFoodAdultEnabled?.checked === true,
-        weightFactorPercent: isValidFactor(nextAdultWeightFactor)
-          ? Math.round(nextAdultWeightFactor)
-          : (fallbackProfiles.platinumAdultBeef.weightFactorPercent ?? 100),
         quickAddValues: isValidChipSet(nextAdultValues)
           ? nextAdultValues.map((value) => Math.floor(value))
           : [...fallbackProfiles.platinumAdultBeef.quickAddValues],
       },
       platinumAdultChicken: {
         enabled: settingsFoodAdultChickenEnabled?.checked === true,
-        weightFactorPercent: isValidFactor(nextAdultChickenWeightFactor)
-          ? Math.round(nextAdultChickenWeightFactor)
-          : (fallbackProfiles.platinumAdultChicken.weightFactorPercent ?? 100),
         quickAddValues: isValidChipSet(nextAdultChickenValues)
           ? nextAdultChickenValues.map((value) => Math.floor(value))
           : [...fallbackProfiles.platinumAdultChicken.quickAddValues],
       },
       platinumMenuAdultChicken: {
         enabled: settingsFoodMenuAdultChickenEnabled?.checked === true,
-        weightFactorPercent: isValidFactor(nextMenuAdultChickenWeightFactor)
-          ? Math.round(nextMenuAdultChickenWeightFactor)
-          : (fallbackProfiles.platinumMenuAdultChicken.weightFactorPercent ?? 100),
         quickAddValues: isValidChipSet(nextMenuAdultChickenValues)
           ? nextMenuAdultChickenValues.map((value) => Math.floor(value))
           : [...fallbackProfiles.platinumMenuAdultChicken.quickAddValues],
       },
       platinumMenuAdultBeefChicken: {
         enabled: settingsFoodMenuAdultBeefChickenEnabled?.checked === true,
-        weightFactorPercent: isValidFactor(nextMenuAdultBeefChickenWeightFactor)
-          ? Math.round(nextMenuAdultBeefChickenWeightFactor)
-          : (fallbackProfiles.platinumMenuAdultBeefChicken.weightFactorPercent ?? 100),
         quickAddValues: isValidChipSet(nextMenuAdultBeefChickenValues)
           ? nextMenuAdultBeefChickenValues.map((value) => Math.floor(value))
           : [...fallbackProfiles.platinumMenuAdultBeefChicken.quickAddValues],

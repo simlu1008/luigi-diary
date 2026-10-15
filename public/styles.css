@@ -55,18 +55,57 @@ h1 {
 }
 
 .feed-progress-track {
+  position: relative;
   width: 100%;
-  height: 8px;
+  height: 16px;
   border-radius: 999px;
   background: #e5e7eb;
   overflow: hidden;
 }
 
 .feed-progress-bar {
+  position: relative;
+  z-index: 1;
   height: 100%;
   width: 0%;
-  background: linear-gradient(90deg, #34d399, #10b981);
+  background: #f59e0b;
   transition: width 0.2s ease;
+}
+
+.feed-progress-bar.is-in-range {
+  background: #10b981;
+}
+
+.feed-progress-bar.is-over-range {
+  background: #ef4444;
+}
+
+.feed-progress-track.is-below-range {
+  background: #f59e0b;
+}
+
+.feed-progress-track.is-in-range {
+  background: #10b981;
+}
+
+.feed-progress-track.is-over-range {
+  background: #ef4444;
+}
+
+.feed-progress-marker {
+  position: absolute;
+  top: -3px;
+  bottom: -3px;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.feed-progress-range-marker {
+  border-left: 2px solid #6b7280;
+}
+
+.feed-progress-target-marker {
+  border-left: 2px dotted #4b5563;
 }
 
 .feed-progress-text {
