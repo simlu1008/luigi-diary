@@ -100,7 +100,7 @@ h1 {
   display: flex;
   align-items: end;
   justify-content: space-between;
-  min-height: 88px;
+  min-height: 72px;
   margin: -2px 18px 4px;
   padding: 0 24px;
   border-radius: 18px;
@@ -229,8 +229,8 @@ h1 {
 
 .pumpkin {
   position: relative;
-  width: 39px;
-  height: 29px;
+  width: 44px;
+  height: 33px;
   margin-bottom: 3px;
   border-radius: 48% 48% 44% 44%;
   background: linear-gradient(90deg, #c2410c 0 18%, #f97316 19% 38%, #ea580c 39% 62%, #fb923c 63% 80%, #c2410c 81%);
@@ -238,8 +238,8 @@ h1 {
 }
 
 .pumpkin-small {
-  width: 28px;
-  height: 22px;
+  width: 32px;
+  height: 25px;
   transform: rotate(-8deg);
 }
 
@@ -276,8 +276,8 @@ h1 {
   z-index: -1;
   left: 50%;
   bottom: -5px;
-  width: 138px;
-  height: 92px;
+  width: 122px;
+  height: 78px;
   border: 1px solid rgba(255, 255, 255, 0.62);
   border-radius: 50% 50% 45% 45%;
   background: radial-gradient(ellipse at 50% 18%, rgba(255, 255, 255, 0.3), transparent 58%);
@@ -564,8 +564,8 @@ h1 {
 
 .tree {
   position: relative;
-  width: 38px;
-  height: 52px;
+  width: 44px;
+  height: 60px;
   margin-bottom: 1px;
   border-bottom: 7px solid #92400e;
   background:
@@ -577,8 +577,8 @@ h1 {
 }
 
 .tree-small {
-  width: 28px;
-  height: 39px;
+  width: 32px;
+  height: 45px;
   transform: rotate(8deg);
 }
 
@@ -689,6 +689,11 @@ h1 {
   96% { transform: rotate(5deg); }
 }
 
+@keyframes status-sparkle {
+  0%, 100% { opacity: 0.22; transform: scale(0.8) rotate(0deg); }
+  50% { opacity: 0.9; transform: scale(1.25) rotate(18deg); }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .poodle,
   .poodle-sparkle,
@@ -698,7 +703,10 @@ h1 {
   .tree-snow,
   .shooting-stars i,
   .gift,
-  .poodle.is-celebrating::after {
+  .poodle.is-celebrating::after,
+  .status-card::before,
+  .status-card::after,
+  .status-holiday-sparkles i {
     animation: none;
   }
 }
@@ -707,6 +715,73 @@ h1 {
   margin: 4px 0 0;
   color: var(--muted);
   font-size: 13px;
+}
+
+.status-card {
+  position: relative;
+  overflow: hidden;
+  border-color: #d9e4f2;
+  background:
+    radial-gradient(circle at 96% 12%, rgba(253, 230, 138, 0.2) 0 2px, transparent 3px),
+    radial-gradient(circle at 4% 88%, rgba(147, 197, 253, 0.16) 0 2px, transparent 3px),
+    var(--card);
+}
+
+.status-card::before,
+.status-card::after {
+  content: "✦";
+  position: absolute;
+  z-index: 0;
+  color: #fbbf24;
+  font-size: 15px;
+  opacity: 0.35;
+  pointer-events: none;
+  animation: status-sparkle 3.4s ease-in-out infinite;
+}
+
+.status-card::before {
+  top: 18px;
+  right: 24px;
+}
+
+.status-card::after {
+  bottom: 18px;
+  left: 22px;
+  color: #93c5fd;
+  font-size: 11px;
+  animation-delay: -1.7s;
+}
+
+.status-card > * {
+  position: relative;
+  z-index: 1;
+}
+
+.status-holiday-sparkles {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.status-holiday-sparkles i {
+  position: absolute;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #fbbf24;
+  box-shadow: 0 0 0 2px rgba(254, 243, 199, 0.75), 0 0 9px #fbbf24;
+  animation: status-light-twinkle 2.8s ease-in-out infinite;
+}
+
+.status-holiday-sparkles i:nth-child(1) { top: 22px; right: 70px; }
+.status-holiday-sparkles i:nth-child(2) { top: 52px; right: 30px; background: #ef4444; box-shadow: 0 0 0 2px rgba(254, 226, 226, 0.75), 0 0 9px #ef4444; animation-delay: -0.7s; }
+.status-holiday-sparkles i:nth-child(3) { bottom: 30px; right: 58px; background: #22c55e; box-shadow: 0 0 0 2px rgba(220, 252, 231, 0.75), 0 0 9px #22c55e; animation-delay: -1.4s; }
+.status-holiday-sparkles i:nth-child(4) { bottom: 22px; left: 58px; background: #60a5fa; box-shadow: 0 0 0 2px rgba(219, 234, 254, 0.75), 0 0 9px #60a5fa; animation-delay: -2.1s; }
+
+@keyframes status-light-twinkle {
+  0%, 100% { opacity: 0.32; transform: scale(0.65); }
+  50% { opacity: 1; transform: scale(1.35); }
 }
 
 .status-card .feed-progress-wrap {
@@ -742,18 +817,6 @@ h1 {
 }
 
 .feed-progress-bar.is-over-range {
-  background: #ef4444;
-}
-
-.feed-progress-track.is-below-range {
-  background: #f59e0b;
-}
-
-.feed-progress-track.is-in-range {
-  background: #10b981;
-}
-
-.feed-progress-track.is-over-range {
   background: #ef4444;
 }
 
@@ -1846,7 +1909,7 @@ input[type='datetime-local'] {
 
 @media (max-width: 520px) {
   .seasonal-decoration {
-    min-height: 82px;
+    min-height: 70px;
     margin-right: 8px;
     margin-left: 8px;
     padding-right: 12px;
