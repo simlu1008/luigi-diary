@@ -2554,7 +2554,7 @@ input[type='datetime-local'] {
   .status-christmas-animations {
     top: 0;
     right: 2px;
-    width: 58%;
+    width: 64%;
     height: 190px;
     opacity: 0.7;
   }
@@ -2568,16 +2568,16 @@ input[type='datetime-local'] {
   .status-christmas-animations.is-snowman .status-snowman-animation {
     left: 50%;
     right: auto;
-    width: 70%;
-    height: 195px;
+    width: 78%;
+    height: 215px;
     transform: translateX(-50%);
   }
 
   .food-christmas-animation {
-    right: 8px;
-    top: -18px;
-    width: 200px;
-    height: 130px;
+    right: 4px;
+    top: 8px;
+    width: 250px;
+    height: 163px;
     opacity: 0.65;
   }
 
