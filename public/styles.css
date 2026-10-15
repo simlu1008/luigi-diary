@@ -270,6 +270,21 @@ h1 {
   padding-bottom: 2px;
 }
 
+.seasonal-poodle::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  left: 50%;
+  bottom: -5px;
+  width: 116px;
+  height: 76px;
+  border: 1px solid rgba(255, 255, 255, 0.62);
+  border-radius: 50% 50% 45% 45%;
+  background: radial-gradient(ellipse at 50% 18%, rgba(255, 255, 255, 0.3), transparent 58%);
+  box-shadow: inset 0 0 10px rgba(255, 255, 255, 0.28), 0 3px 8px rgba(147, 197, 253, 0.12);
+  transform: translateX(-50%);
+}
+
 .poodle {
   display: inline-block;
   position: relative;
