@@ -811,9 +811,11 @@ h1 {
 }
 
 .status-christmas-animations.is-snowman .status-snowman-animation {
-  right: 0;
-  width: 58%;
-  height: 205px;
+  left: 50%;
+  right: auto;
+  width: 68%;
+  height: 220px;
+  transform: translateX(-50%);
 }
 
 .status-card > h2,
@@ -2500,8 +2502,11 @@ input[type='datetime-local'] {
   }
 
   .status-christmas-animations.is-snowman .status-snowman-animation {
-    width: 62%;
-    height: 180px;
+    left: 50%;
+    right: auto;
+    width: 70%;
+    height: 195px;
+    transform: translateX(-50%);
   }
 
   .food-christmas-animation {
