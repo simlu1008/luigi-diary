@@ -3894,6 +3894,42 @@ function bindActions() {
   });
 }
 
+function initStatusChristmasAnimation() {
+  if (typeof window.lottie?.loadAnimation !== 'function') {
+    console.error('Die Weihnachtsanimation konnte nicht geladen werden.');
+    return;
+  }
+
+  const animationGroup = document.querySelector('.status-christmas-animations');
+  const showSnowman = Math.random() >= 0.5;
+  const selectedAnimation = showSnowman
+    ? ['status-snowman-animation', '/happy-snowman.json']
+    : ['status-christmas-animation', '/christmas-lights.json'];
+
+  if (!animationGroup) {
+    console.error('Container für Weihnachtsanimation fehlt.');
+    return;
+  }
+
+  animationGroup.classList.toggle('is-snowman', showSnowman);
+  animationGroup.classList.toggle('is-lights', !showSnowman);
+
+  const [containerId, path] = selectedAnimation;
+  const container = document.getElementById(containerId);
+  if (!container) {
+    console.error(`Container für Weihnachtsanimation fehlt: ${containerId}`);
+    return;
+  }
+
+  window.lottie.loadAnimation({
+    container,
+    renderer: 'svg',
+    loop: true,
+    autoplay: true,
+    path,
+  });
+}
+
 initLanguage();
 loadAppSettings();
 initActiveTab();
@@ -3901,6 +3937,7 @@ applyStaticTranslations();
 bindActions();
 applySettingsToForm();
 setActiveTab(currentTab);
+initStatusChristmasAnimation();
 startEliminationStatusTicker();
 startSettingsSyncTicker();
 setupFoodAccordion();
