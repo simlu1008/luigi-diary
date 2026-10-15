@@ -100,9 +100,9 @@ h1 {
   display: flex;
   align-items: end;
   justify-content: space-between;
-  min-height: 58px;
+  min-height: 88px;
   margin: -2px 18px 4px;
-  padding: 0 18px;
+  padding: 0 24px;
   border-radius: 18px;
   background: linear-gradient(180deg, rgba(255, 247, 237, 0.75), rgba(240, 253, 250, 0.75));
   pointer-events: none;
@@ -276,8 +276,8 @@ h1 {
   z-index: -1;
   left: 50%;
   bottom: -5px;
-  width: 116px;
-  height: 76px;
+  width: 138px;
+  height: 92px;
   border: 1px solid rgba(255, 255, 255, 0.62);
   border-radius: 50% 50% 45% 45%;
   background: radial-gradient(ellipse at 50% 18%, rgba(255, 255, 255, 0.3), transparent 58%);
@@ -1845,6 +1845,14 @@ input[type='datetime-local'] {
 }
 
 @media (max-width: 520px) {
+  .seasonal-decoration {
+    min-height: 82px;
+    margin-right: 8px;
+    margin-left: 8px;
+    padding-right: 12px;
+    padding-left: 12px;
+  }
+
   .top-bar {
     flex-direction: column;
     align-items: stretch;
