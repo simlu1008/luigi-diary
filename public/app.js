@@ -76,7 +76,7 @@ const FOOD_PROFILE_DEFINITIONS = {
     defaultQuickAddValues: [150, 200, 250],
     labelKey: 'foodNamePlatinumMenuPuppyChicken',
     foodType: 'wet',
-    kcalPer100g: 105,
+    kcalPer100g: 166.2,
   },
   platinumPuppyMiniChicken: {
     key: 'platinumPuppyMiniChicken',
@@ -85,7 +85,7 @@ const FOOD_PROFILE_DEFINITIONS = {
     defaultQuickAddValues: [30, 50, 70],
     labelKey: 'foodNamePlatinumPuppyMiniChicken',
     foodType: 'dry',
-    kcalPer100g: 380,
+    kcalPer100g: 364.4,
   },
   platinumAdultBeef: {
     key: 'platinumAdultBeef',
@@ -94,7 +94,7 @@ const FOOD_PROFILE_DEFINITIONS = {
     defaultQuickAddValues: [150, 200, 250],
     labelKey: 'foodNamePlatinumAdultBeef',
     foodType: 'dry',
-    kcalPer100g: 367,
+    kcalPer100g: 362,
   },
   platinumAdultChicken: {
     key: 'platinumAdultChicken',
@@ -103,7 +103,7 @@ const FOOD_PROFILE_DEFINITIONS = {
     defaultQuickAddValues: [150, 200, 250],
     labelKey: 'foodNamePlatinumAdultChicken',
     foodType: 'dry',
-    kcalPer100g: 367,
+    kcalPer100g: 364.4,
   },
   platinumMenuAdultChicken: {
     key: 'platinumMenuAdultChicken',
@@ -112,7 +112,7 @@ const FOOD_PROFILE_DEFINITIONS = {
     defaultQuickAddValues: [150, 200, 250],
     labelKey: 'foodNamePlatinumMenuAdultChicken',
     foodType: 'wet',
-    kcalPer100g: 105,
+    kcalPer100g: 178.1,
   },
   platinumMenuAdultBeefChicken: {
     key: 'platinumMenuAdultBeefChicken',
@@ -121,7 +121,7 @@ const FOOD_PROFILE_DEFINITIONS = {
     defaultQuickAddValues: [150, 200, 250],
     labelKey: 'foodNamePlatinumMenuAdultBeefChicken',
     foodType: 'wet',
-    kcalPer100g: 105,
+    kcalPer100g: 158.4,
   },
 };
 
@@ -536,6 +536,20 @@ function updateFoodRecommendationUi() {
   updateFoodRecommendationCard('food-accordion-summary-5', 'food-recommendation-amount-5', getPlatinumAdultChickenRecommendation());
   updateFoodRecommendationCard('food-accordion-summary-6', 'food-recommendation-amount-6', getPlatinumMenuAdultChickenRecommendation());
   updateFoodRecommendationCard('food-accordion-summary-7', 'food-recommendation-amount-7', getPlatinumMenuAdultBeefChickenRecommendation());
+
+  const calorieTargetEl = document.getElementById('settings-food-calorie-target');
+  if (calorieTargetEl) {
+    const targetCalories = getEffectiveDailyTargetCalories();
+    const calorieRange = getEffectiveDailyRangeCalories();
+    calorieTargetEl.textContent = targetCalories && calorieRange
+      ? t('settingsFoodCalorieTarget', {
+        targetCalories,
+        minCalories: calorieRange.minKcal,
+        maxCalories: calorieRange.maxKcal,
+        referenceFood: getFeedReferenceLabel(),
+      })
+      : t('settingsFoodCalorieTargetMissing');
+  }
 }
 
 function setupFoodAccordion() {
@@ -668,6 +682,14 @@ function getEffectiveDailyTargetGrams() {
   return referenceTarget?.gramsPerDay || null;
 }
 
+function getEffectiveDailyTargetCalories() {
+  const referenceTarget = getFoodReferenceTarget();
+  const kcalPer100g = Number(referenceTarget?.kcalPer100g);
+  const gramsPerDay = Number(referenceTarget?.gramsPerDay);
+  if (!Number.isFinite(kcalPer100g) || kcalPer100g <= 0 || !Number.isFinite(gramsPerDay) || gramsPerDay <= 0) return null;
+  return Math.round(gramsPerDay * kcalPer100g / 100);
+}
+
 function getEffectiveDailyRangeGrams() {
   const referenceTarget = getFoodReferenceTarget();
   if (!referenceTarget) return null;
@@ -678,6 +700,24 @@ function getEffectiveDailyRangeGrams() {
     minGrams: Math.min(minGrams, maxGrams),
     maxGrams: Math.max(minGrams, maxGrams),
   };
+}
+
+function getEffectiveDailyRangeCalories() {
+  const referenceTarget = getFoodReferenceTarget();
+  const kcalPer100g = Number(referenceTarget?.kcalPer100g);
+  const range = getEffectiveDailyRangeGrams();
+  if (!Number.isFinite(kcalPer100g) || kcalPer100g <= 0 || !range) return null;
+  return {
+    minKcal: Math.round(range.minGrams * kcalPer100g / 100),
+    maxKcal: Math.round(range.maxGrams * kcalPer100g / 100),
+  };
+}
+
+function getFreshFoodRecommendedDailyGrams(foodKey) {
+  const dailyCalories = getEffectiveDailyTargetCalories();
+  const kcalPer100g = Number(appSettings.foodProfiles?.[foodKey]?.kcalPer100g ?? FRESH_FOOD_DEFINITIONS[foodKey]?.kcalPer100g);
+  if (!dailyCalories || !Number.isFinite(kcalPer100g) || kcalPer100g <= 0) return null;
+  return Math.round(dailyCalories * 100 / kcalPer100g);
 }
 
 function getCandySharePercent() {
@@ -841,6 +881,9 @@ function renderFeedFoodOptions() {
       : [];
     const currentAmount = Math.max(0, Math.floor(Number(feedMixAmounts?.[foodKey] || 0)));
     const recommendationGrams = getAdjustedFoodRecommendedDailyGrams(foodKey);
+    const freshRecommendationGrams = FRESH_FOOD_DEFINITIONS[foodKey]
+      ? getFreshFoodRecommendedDailyGrams(foodKey)
+      : null;
     const chipsMarkup = quickAddValues
       .map((grams) => `<button type="button" class="chip-btn" data-food-key="${foodKey}" data-gram="${grams}">+${grams}g</button>`)
       .join('');
@@ -849,7 +892,7 @@ function renderFeedFoodOptions() {
       <div class="food-mix-row">
         <div class="food-mix-header">
           <span class="food-mix-name">${getFoodDisplayName(foodKey)}</span>
-          <span class="food-mix-factor">${recommendationGrams ? t('feedRecommendedBadge', { grams: recommendationGrams }) : definition?.kcalPer100g ? t('feedFreshBadge', { kcal: definition.kcalPer100g }) : t('feedRecommendedUnknown')}</span>
+          <span class="food-mix-factor">${recommendationGrams ? t('feedRecommendedBadge', { grams: recommendationGrams }) : freshRecommendationGrams ? t('feedFreshRecommendedBadge', { grams: freshRecommendationGrams }) : t('feedRecommendedUnknown')}</span>
         </div>
         <div class="feed-input-row">
           <label class="feed-amount-label" for="feed-amount-${foodKey}">${t('feedAmountLabel')}</label>
@@ -1060,6 +1103,7 @@ const TRANSLATIONS = {
     feedTypeWet: 'Nassfutter',
     feedTypeFresh: 'Frisches Essen',
     feedFreshBadge: '{kcal} kcal/100 g',
+    feedFreshRecommendedBadge: 'Empfehlung: {grams} g/Tag',
     freshFoodRice: 'Gekochter Reis',
     freshFoodChicken: 'Gekochte Hühnerbrust',
     feedCandyShareLabel: 'Candy-Anteil am Tagesbedarf',
@@ -1219,6 +1263,8 @@ const TRANSLATIONS = {
     settingsTargetWeightInvalid: 'Bitte ein gültiges Zielgewicht eingeben (> 0).',
     settingsFoodChipInvalid: 'Bitte für jede aktive Futtersorte drei gültige Quick-Add-Werte (> 0) eingeben.',
     settingsFoodKcalInvalid: 'Bitte gültige kcal-Werte für Reis und Hühnerbrust eingeben.',
+    settingsFoodCalorieTarget: 'Empfohlenes Tagesziel: {targetCalories} kcal · Bereich: {minCalories}–{maxCalories} kcal · Referenz: {referenceFood}',
+    settingsFoodCalorieTargetMissing: 'Kcal-Tagesziel wird angezeigt, sobald Alter, Gewicht und ein Referenzfutter hinterlegt sind.',
     foodSummaryPending: 'Menge offen',
     foodSummaryGrams: '{grams} g/Tag',
     foodMissingBirthDate: 'Bitte zuerst ein gültiges Geburtsdatum in den Einstellungen angeben.',
@@ -1308,6 +1354,7 @@ const TRANSLATIONS = {
     feedTypeWet: 'Wet food',
     feedTypeFresh: 'Fresh food',
     feedFreshBadge: '{kcal} kcal/100 g',
+    feedFreshRecommendedBadge: 'Recommended: {grams} g/day',
     freshFoodRice: 'Cooked rice',
     freshFoodChicken: 'Cooked chicken breast',
     feedCandyShareLabel: 'Candy share of daily need',
@@ -1467,6 +1514,8 @@ const TRANSLATIONS = {
     settingsTargetWeightInvalid: 'Please enter a valid target weight (> 0).',
     settingsFoodChipInvalid: 'Please enter three valid quick-add values (> 0) for each active food type.',
     settingsFoodKcalInvalid: 'Enter valid kcal values for rice and chicken breast.',
+    settingsFoodCalorieTarget: 'Recommended daily target: {targetCalories} kcal · Range: {minCalories}–{maxCalories} kcal · Reference: {referenceFood}',
+    settingsFoodCalorieTargetMissing: 'The daily kcal target appears once age, weight, and a reference food are configured.',
     foodSummaryPending: 'Amount pending',
     foodSummaryGrams: '{grams} g/day',
     foodMissingBirthDate: 'Please provide a valid birth date in settings first.',
