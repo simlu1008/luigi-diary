@@ -3428,6 +3428,14 @@ function bindActions() {
   const settingsFoodMenuAdultBeefChickenChip1 = document.getElementById('settings-food-menu-adult-beef-chicken-chip-1');
   const settingsFoodMenuAdultBeefChickenChip2 = document.getElementById('settings-food-menu-adult-beef-chicken-chip-2');
   const settingsFoodMenuAdultBeefChickenChip3 = document.getElementById('settings-food-menu-adult-beef-chicken-chip-3');
+  const settingsFoodFreshRiceEnabled = document.getElementById('settings-food-fresh-rice-enabled');
+  const settingsFoodFreshRiceChip1 = document.getElementById('settings-food-fresh-rice-chip-1');
+  const settingsFoodFreshRiceChip2 = document.getElementById('settings-food-fresh-rice-chip-2');
+  const settingsFoodFreshRiceChip3 = document.getElementById('settings-food-fresh-rice-chip-3');
+  const settingsFoodFreshChickenEnabled = document.getElementById('settings-food-fresh-chicken-enabled');
+  const settingsFoodFreshChickenChip1 = document.getElementById('settings-food-fresh-chicken-chip-1');
+  const settingsFoodFreshChickenChip2 = document.getElementById('settings-food-fresh-chicken-chip-2');
+  const settingsFoodFreshChickenChip3 = document.getElementById('settings-food-fresh-chicken-chip-3');
   const eventsList = document.getElementById('events');
   const editEventDialog = document.getElementById('edit-event-dialog');
   const editEventForm = document.getElementById('edit-event-form');
