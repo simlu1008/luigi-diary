@@ -3519,6 +3519,7 @@ function bindActions() {
   const settingsFoodFreshChickenEnabled = document.getElementById('settings-food-fresh-chicken-enabled');
   const settingsFoodFreshRiceKcal = document.getElementById('settings-food-fresh-rice-kcal');
   const settingsFoodFreshChickenKcal = document.getElementById('settings-food-fresh-chicken-kcal');
+  const settingsFoodFreshChickenChip1 = document.getElementById('settings-food-fresh-chicken-chip-1');
   const settingsFoodFreshChickenChip2 = document.getElementById('settings-food-fresh-chicken-chip-2');
   const settingsFoodFreshChickenChip3 = document.getElementById('settings-food-fresh-chicken-chip-3');
   const eventsList = document.getElementById('events');
