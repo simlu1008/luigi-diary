@@ -130,11 +130,15 @@ const FRESH_FOOD_DEFINITIONS = {
     labelKey: 'freshFoodRice',
     kcalPer100g: 130,
     defaultQuickAddValues: [25, 50, 75],
+    enabledInputId: 'settings-food-fresh-rice-enabled',
+    chipInputIds: ['settings-food-fresh-rice-chip-1', 'settings-food-fresh-rice-chip-2', 'settings-food-fresh-rice-chip-3'],
   },
   freshChicken: {
     labelKey: 'freshFoodChicken',
     kcalPer100g: 165,
     defaultQuickAddValues: [25, 50, 75],
+    enabledInputId: 'settings-food-fresh-chicken-enabled',
+    chipInputIds: ['settings-food-fresh-chicken-chip-1', 'settings-food-fresh-chicken-chip-2', 'settings-food-fresh-chicken-chip-3'],
   },
 };
 
@@ -168,6 +172,8 @@ function createDefaultFoodProfiles() {
       enabled: false,
       quickAddValues: [...FOOD_PROFILE_DEFINITIONS.platinumMenuAdultBeefChicken.defaultQuickAddValues],
     },
+    freshRice: { enabled: true, quickAddValues: [...FRESH_FOOD_DEFINITIONS.freshRice.defaultQuickAddValues] },
+    freshChicken: { enabled: true, quickAddValues: [...FRESH_FOOD_DEFINITIONS.freshChicken.defaultQuickAddValues] },
   };
 }
 
@@ -197,7 +203,7 @@ function normalizeFoodProfiles(rawProfiles) {
   const defaults = createDefaultFoodProfiles();
   const normalized = { ...defaults };
 
-  for (const [key, definition] of Object.entries(FOOD_PROFILE_DEFINITIONS)) {
+  for (const [key, definition] of Object.entries({ ...FOOD_PROFILE_DEFINITIONS, ...FRESH_FOOD_DEFINITIONS })) {
     const rawProfile = rawProfiles?.[key] ?? {};
     normalized[key] = {
       enabled: rawProfile?.enabled === true,
@@ -543,8 +549,8 @@ function setupFoodAccordion() {
 }
 
 function getActiveFoodProfileKeys() {
-  return Object.keys(FOOD_PROFILE_DEFINITIONS).filter((foodKey) => {
-    const definition = FOOD_PROFILE_DEFINITIONS[foodKey];
+  return Object.keys({ ...FOOD_PROFILE_DEFINITIONS, ...FRESH_FOOD_DEFINITIONS }).filter((foodKey) => {
+    const definition = FOOD_PROFILE_DEFINITIONS[foodKey] || FRESH_FOOD_DEFINITIONS[foodKey];
     const enabledInput = definition?.enabledInputId ? document.getElementById(definition.enabledInputId) : null;
     if (enabledInput) return enabledInput.checked === true;
     return appSettings.foodProfiles?.[foodKey]?.enabled === true;
@@ -606,11 +612,13 @@ function getPendingFeedMixRawTotal() {
 
 function getPendingFeedMixProgressShare() {
   const referenceKcalPer100g = getReferenceKcalPer100g();
+  const referenceTargetGrams = getEffectiveDailyTargetGrams();
   return Object.entries(feedMixAmounts).reduce((sum, [foodKey, value]) => {
     const amount = Number(value);
     if (FRESH_FOOD_DEFINITIONS[foodKey]) {
-      if (!referenceKcalPer100g || !Number.isFinite(amount) || amount <= 0) return sum;
-      return sum + getFreshFoodCalories(foodKey, amount) / referenceKcalPer100g / 100;
+      if (!referenceKcalPer100g || !referenceTargetGrams || !Number.isFinite(amount) || amount <= 0) return sum;
+      const referenceDailyCalories = referenceKcalPer100g * referenceTargetGrams / 100;
+      return sum + getFreshFoodCalories(foodKey, amount) / referenceDailyCalories;
     }
     const recommendationGrams = getFoodRecommendedDailyGrams(foodKey);
     if (!Number.isFinite(amount) || amount <= 0 || !recommendationGrams) return sum;
@@ -694,6 +702,7 @@ function updateFeedPreviewStatus() {
   const previewRemainingPlatinumEl = document.getElementById('feed-preview-remaining-platinum');
   const previewRemainingPlatinumMiniEl = document.getElementById('feed-preview-remaining-platinum-mini');
   const candyHintEl = document.getElementById('feed-candy-share-hint');
+  const candyGramsEl = document.getElementById('feed-candy-share-grams');
   const previewFedBarEl = document.getElementById('feed-preview-fed-bar');
   const previewPendingBarEl = document.getElementById('feed-preview-pending-bar');
   const previewOverBarEl = document.getElementById('feed-preview-over-bar');
@@ -714,9 +723,16 @@ function updateFeedPreviewStatus() {
   const referenceFood = getFeedReferenceLabel();
   const candyPercent = getCandySharePercent();
   const foodPercent = Math.max(0, 100 - candyPercent);
+  const candyGrams = fullTarget ? Math.round(fullTarget * candyPercent / 100) : 0;
 
   if (candyHintEl) {
     candyHintEl.textContent = t('feedCandyShareHint', { candyPercent, foodPercent });
+  }
+  if (candyGramsEl) {
+    candyGramsEl.textContent = t('feedCandyShareGrams', {
+      grams: candyGrams,
+      foodTarget: foodTarget || 0,
+    });
   }
 
   if (previewRawEl) previewRawEl.textContent = `${pendingRaw} g`;
@@ -834,7 +850,7 @@ function renderFeedFoodOptions() {
 
   const dryFoods = activeKeys.filter((k) => FOOD_PROFILE_DEFINITIONS[k]?.foodType === 'dry');
   const wetFoods = activeKeys.filter((k) => FOOD_PROFILE_DEFINITIONS[k]?.foodType === 'wet');
-  const freshFoods = Object.keys(FRESH_FOOD_DEFINITIONS);
+  const freshFoods = activeKeys.filter((k) => FRESH_FOOD_DEFINITIONS[k]);
 
   let html = '';
 
@@ -1033,6 +1049,7 @@ const TRANSLATIONS = {
     freshFoodChicken: 'Gekochte Hühnerbrust',
     feedCandyShareLabel: 'Candy-Anteil am Tagesbedarf',
     feedCandyShareHint: 'Candies: {candyPercent}% · normales Futter: {foodPercent}%',
+    feedCandyShareGrams: 'Für Candies berücksichtigt: {grams} g · normales Futterziel: {foodTarget} g',
     feedPreviewWithTarget: 'Nach dieser Fütterung: {projectedPercent}% ({projectedFed}/{target} g, Referenz: {referenceFood}).',
     feedPreviewNoTarget: 'Nach dieser Fütterung: {projectedFed} g gesamt heute.',
     feedMixNoAmount: 'Bitte zuerst eine Futtermenge > 0 auswählen.',
@@ -1173,6 +1190,8 @@ const TRANSLATIONS = {
     settingsFoodAdultChickenEnabledLabel: 'PLATINUM Adult Chicken wird aktuell gefüttert',
     settingsFoodMenuAdultChickenEnabledLabel: 'PLATINUM Menu Adult Chicken wird aktuell gefüttert',
     settingsFoodMenuAdultBeefChickenEnabledLabel: 'PLATINUM Menu Adult Beef + Chicken wird aktuell gefüttert',
+    settingsFoodFreshRiceEnabledLabel: 'Gekochter Reis wird aktuell gefüttert',
+    settingsFoodFreshChickenEnabledLabel: 'Gekochte Hühnerbrust wird aktuell gefüttert',
     settingsFoodChip1Label: 'Quick Add 1 (g)',
     settingsFoodChip2Label: 'Quick Add 2 (g)',
     settingsFoodChip3Label: 'Quick Add 3 (g)',
@@ -1276,6 +1295,7 @@ const TRANSLATIONS = {
     freshFoodChicken: 'Cooked chicken breast',
     feedCandyShareLabel: 'Candy share of daily need',
     feedCandyShareHint: 'Candies: {candyPercent}% · regular food: {foodPercent}%',
+    feedCandyShareGrams: 'Candy allowance: {grams} g · regular food target: {foodTarget} g',
     feedPreviewWithTarget: 'After this feeding: {projectedPercent}% ({projectedFed}/{target} g, reference: {referenceFood}).',
     feedPreviewNoTarget: 'After this feeding: {projectedFed} g total today.',
     feedMixNoAmount: 'Please select a feed amount > 0 first.',
@@ -1414,6 +1434,8 @@ const TRANSLATIONS = {
     settingsFoodAdultChickenEnabledLabel: 'PLATINUM Adult Chicken is currently fed',
     settingsFoodMenuAdultChickenEnabledLabel: 'PLATINUM Menu Adult Chicken is currently fed',
     settingsFoodMenuAdultBeefChickenEnabledLabel: 'PLATINUM Menu Adult Beef + Chicken is currently fed',
+    settingsFoodFreshRiceEnabledLabel: 'Cooked rice is currently fed',
+    settingsFoodFreshChickenEnabledLabel: 'Cooked chicken breast is currently fed',
     settingsFoodChip1Label: 'Quick add 1 (g)',
     settingsFoodChip2Label: 'Quick add 2 (g)',
     settingsFoodChip3Label: 'Quick add 3 (g)',
@@ -1623,6 +1645,8 @@ function applyStaticTranslations() {
   setText('settings-food-adult-chicken-enabled-label', t('settingsFoodAdultChickenEnabledLabel'));
   setText('settings-food-menu-adult-chicken-enabled-label', t('settingsFoodMenuAdultChickenEnabledLabel'));
   setText('settings-food-menu-adult-beef-chicken-enabled-label', t('settingsFoodMenuAdultBeefChickenEnabledLabel'));
+  setText('settings-food-fresh-rice-enabled-label', t('settingsFoodFreshRiceEnabledLabel'));
+  setText('settings-food-fresh-chicken-enabled-label', t('settingsFoodFreshChickenEnabledLabel'));
   setText('settings-food-young-chip-1-label', t('settingsFoodChip1Label'));
   setText('settings-food-young-chip-2-label', t('settingsFoodChip2Label'));
   setText('settings-food-young-chip-3-label', t('settingsFoodChip3Label'));
@@ -1930,6 +1954,14 @@ function applySettingsToForm() {
   const settingsFoodMenuAdultBeefChickenChip1 = document.getElementById('settings-food-menu-adult-beef-chicken-chip-1');
   const settingsFoodMenuAdultBeefChickenChip2 = document.getElementById('settings-food-menu-adult-beef-chicken-chip-2');
   const settingsFoodMenuAdultBeefChickenChip3 = document.getElementById('settings-food-menu-adult-beef-chicken-chip-3');
+  const settingsFoodFreshRiceEnabled = document.getElementById('settings-food-fresh-rice-enabled');
+  const settingsFoodFreshRiceChip1 = document.getElementById('settings-food-fresh-rice-chip-1');
+  const settingsFoodFreshRiceChip2 = document.getElementById('settings-food-fresh-rice-chip-2');
+  const settingsFoodFreshRiceChip3 = document.getElementById('settings-food-fresh-rice-chip-3');
+  const settingsFoodFreshChickenEnabled = document.getElementById('settings-food-fresh-chicken-enabled');
+  const settingsFoodFreshChickenChip1 = document.getElementById('settings-food-fresh-chicken-chip-1');
+  const settingsFoodFreshChickenChip2 = document.getElementById('settings-food-fresh-chicken-chip-2');
+  const settingsFoodFreshChickenChip3 = document.getElementById('settings-food-fresh-chicken-chip-3');
   const feedCandyShareInput = document.getElementById('feed-candy-share-percent');
 
   const youngProfile = appSettings.foodProfiles?.youngPackMini;
@@ -1939,6 +1971,8 @@ function applySettingsToForm() {
   const adultChickenProfile = appSettings.foodProfiles?.platinumAdultChicken;
   const menuAdultChickenProfile = appSettings.foodProfiles?.platinumMenuAdultChicken;
   const menuAdultBeefChickenProfile = appSettings.foodProfiles?.platinumMenuAdultBeefChicken;
+  const freshRiceProfile = appSettings.foodProfiles?.freshRice;
+  const freshChickenProfile = appSettings.foodProfiles?.freshChicken;
 
   if (birthDateInput) birthDateInput.value = appSettings.birthDate || '';
   if (weightInput) weightInput.value = appSettings.currentWeightKg === null ? '' : String(appSettings.currentWeightKg);
@@ -1975,6 +2009,14 @@ function applySettingsToForm() {
   if (settingsFoodMenuAdultBeefChickenChip1) settingsFoodMenuAdultBeefChickenChip1.value = String(menuAdultBeefChickenProfile?.quickAddValues?.[0] ?? 150);
   if (settingsFoodMenuAdultBeefChickenChip2) settingsFoodMenuAdultBeefChickenChip2.value = String(menuAdultBeefChickenProfile?.quickAddValues?.[1] ?? 200);
   if (settingsFoodMenuAdultBeefChickenChip3) settingsFoodMenuAdultBeefChickenChip3.value = String(menuAdultBeefChickenProfile?.quickAddValues?.[2] ?? 250);
+  if (settingsFoodFreshRiceEnabled) settingsFoodFreshRiceEnabled.checked = freshRiceProfile?.enabled === true;
+  if (settingsFoodFreshRiceChip1) settingsFoodFreshRiceChip1.value = String(freshRiceProfile?.quickAddValues?.[0] ?? 25);
+  if (settingsFoodFreshRiceChip2) settingsFoodFreshRiceChip2.value = String(freshRiceProfile?.quickAddValues?.[1] ?? 50);
+  if (settingsFoodFreshRiceChip3) settingsFoodFreshRiceChip3.value = String(freshRiceProfile?.quickAddValues?.[2] ?? 75);
+  if (settingsFoodFreshChickenEnabled) settingsFoodFreshChickenEnabled.checked = freshChickenProfile?.enabled === true;
+  if (settingsFoodFreshChickenChip1) settingsFoodFreshChickenChip1.value = String(freshChickenProfile?.quickAddValues?.[0] ?? 25);
+  if (settingsFoodFreshChickenChip2) settingsFoodFreshChickenChip2.value = String(freshChickenProfile?.quickAddValues?.[1] ?? 50);
+  if (settingsFoodFreshChickenChip3) settingsFoodFreshChickenChip3.value = String(freshChickenProfile?.quickAddValues?.[2] ?? 75);
   if (feedCandyShareInput) feedCandyShareInput.value = String(getCandySharePercent());
   initializeFeedMixAmounts();
 
@@ -3597,6 +3639,16 @@ function bindActions() {
       Number(settingsFoodMenuAdultBeefChickenChip2?.value ?? NaN),
       Number(settingsFoodMenuAdultBeefChickenChip3?.value ?? NaN),
     ];
+    const nextFreshRiceValues = [
+      Number(settingsFoodFreshRiceChip1?.value ?? NaN),
+      Number(settingsFoodFreshRiceChip2?.value ?? NaN),
+      Number(settingsFoodFreshRiceChip3?.value ?? NaN),
+    ];
+    const nextFreshChickenValues = [
+      Number(settingsFoodFreshChickenChip1?.value ?? NaN),
+      Number(settingsFoodFreshChickenChip2?.value ?? NaN),
+      Number(settingsFoodFreshChickenChip3?.value ?? NaN),
+    ];
     const nextWalkRecordingEnabled = settingsWalkRecordingToggle?.checked !== false;
 
     if (nextBirthDate) {
@@ -3627,6 +3679,8 @@ function bindActions() {
       || (settingsFoodAdultChickenEnabled?.checked && !isValidChipSet(nextAdultChickenValues))
       || (settingsFoodMenuAdultChickenEnabled?.checked && !isValidChipSet(nextMenuAdultChickenValues))
       || (settingsFoodMenuAdultBeefChickenEnabled?.checked && !isValidChipSet(nextMenuAdultBeefChickenValues))
+      || (settingsFoodFreshRiceEnabled?.checked && !isValidChipSet(nextFreshRiceValues))
+      || (settingsFoodFreshChickenEnabled?.checked && !isValidChipSet(nextFreshChickenValues))
     ) {
       if (settingsResultEl) settingsResultEl.textContent = t('settingsFoodChipInvalid');
       return;
@@ -3675,6 +3729,18 @@ function bindActions() {
         quickAddValues: isValidChipSet(nextMenuAdultBeefChickenValues)
           ? nextMenuAdultBeefChickenValues.map((value) => Math.floor(value))
           : [...fallbackProfiles.platinumMenuAdultBeefChicken.quickAddValues],
+      },
+      freshRice: {
+        enabled: settingsFoodFreshRiceEnabled?.checked === true,
+        quickAddValues: isValidChipSet(nextFreshRiceValues)
+          ? nextFreshRiceValues.map((value) => Math.floor(value))
+          : [...fallbackProfiles.freshRice.quickAddValues],
+      },
+      freshChicken: {
+        enabled: settingsFoodFreshChickenEnabled?.checked === true,
+        quickAddValues: isValidChipSet(nextFreshChickenValues)
+          ? nextFreshChickenValues.map((value) => Math.floor(value))
+          : [...fallbackProfiles.freshChicken.quickAddValues],
       },
     };
 
@@ -3734,6 +3800,14 @@ function bindActions() {
   });
 
   settingsFoodMenuAdultBeefChickenEnabled?.addEventListener('change', () => {
+    renderFeedFoodOptions();
+  });
+
+  settingsFoodFreshRiceEnabled?.addEventListener('change', () => {
+    renderFeedFoodOptions();
+  });
+
+  settingsFoodFreshChickenEnabled?.addEventListener('change', () => {
     renderFeedFoodOptions();
   });
 
