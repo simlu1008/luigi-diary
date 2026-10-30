@@ -176,6 +176,7 @@ function serializeEvent(event) {
     feed_amount_g: event.feedAmountG,
     feed_consumed_percent: consumedPercent,
     feed_consumed_amount_g: consumedAmount,
+    feed_ingredients: event.type === 'feed' ? event.ingredients || [] : null,
     feeding_phase_id: event.type === 'feed' ? event.feedingPhaseId || null : null,
     note: event.note,
   };
@@ -265,6 +266,15 @@ function normalizeImportedEvent(rawEvent) {
   const aloneEnd = toIsoOrNull(rawEvent.alone_end ?? rawEvent.aloneEnd);
   const durationMin = toIntegerOrNull(rawEvent.duration_min ?? rawEvent.durationMin);
   const feedAmountG = toIntegerOrNull(rawEvent.feed_amount_g ?? rawEvent.feedAmountG ?? rawEvent.amount_g ?? rawEvent.amountG);
+  const ingredients = Array.isArray(rawEvent.feed_ingredients ?? rawEvent.ingredients)
+    ? (rawEvent.feed_ingredients ?? rawEvent.ingredients)
+      .filter((ingredient) => ingredient && typeof ingredient.foodKey === 'string')
+      .map((ingredient) => ({
+        foodKey: ingredient.foodKey.trim(),
+        grams: toIntegerOrNull(ingredient.grams),
+      }))
+      .filter((ingredient) => ingredient.foodKey && ingredient.grams !== null && ingredient.grams > 0)
+    : [];
   const feedingPhaseId = typeof (rawEvent.feeding_phase_id ?? rawEvent.feedingPhaseId) === 'string'
     ? (rawEvent.feeding_phase_id ?? rawEvent.feedingPhaseId).trim() || null
     : null;
@@ -298,6 +308,7 @@ function normalizeImportedEvent(rawEvent) {
       aloneStart: null,
       aloneEnd: null,
       feedAmountG,
+      ingredients,
       feedingPhaseId,
       consumedPercent,
       note,
@@ -745,6 +756,15 @@ app.post('/api/feed', (req, res) => {
   const settings = readSettings();
   const note = typeof req.body?.note === 'string' ? req.body.note.trim() : '';
   const amountG = toIntegerOrNull(req.body?.amount_g);
+  const ingredients = Array.isArray(req.body?.ingredients)
+    ? req.body.ingredients
+      .filter((ingredient) => ingredient && typeof ingredient.foodKey === 'string')
+      .map((ingredient) => ({
+        foodKey: ingredient.foodKey.trim(),
+        grams: toIntegerOrNull(ingredient.grams),
+      }))
+      .filter((ingredient) => ingredient.foodKey && ingredient.grams !== null && ingredient.grams > 0)
+    : [];
 
   const event = {
     type: 'feed',
@@ -761,6 +781,7 @@ app.post('/api/feed', (req, res) => {
     aloneStart: null,
     aloneEnd: null,
     feedAmountG: amountG,
+    ingredients,
     feedingPhaseId: normalizeFeedingPhaseId(settings.activeFeedingPhaseId),
     consumedPercent: 100,
     note: note || null,

@@ -67,6 +67,7 @@ const FOOD_PROFILE_DEFINITIONS = {
     defaultQuickAddValues: [25, 30, 50],
     labelKey: 'foodNameYoungPackMini',
     foodType: 'dry',
+    kcalPer100g: 398,
   },
   platinumMenuPuppyChicken: {
     key: 'platinumMenuPuppyChicken',
@@ -75,6 +76,7 @@ const FOOD_PROFILE_DEFINITIONS = {
     defaultQuickAddValues: [150, 200, 250],
     labelKey: 'foodNamePlatinumMenuPuppyChicken',
     foodType: 'wet',
+    kcalPer100g: 105,
   },
   platinumPuppyMiniChicken: {
     key: 'platinumPuppyMiniChicken',
@@ -83,6 +85,7 @@ const FOOD_PROFILE_DEFINITIONS = {
     defaultQuickAddValues: [30, 50, 70],
     labelKey: 'foodNamePlatinumPuppyMiniChicken',
     foodType: 'dry',
+    kcalPer100g: 380,
   },
   platinumAdultBeef: {
     key: 'platinumAdultBeef',
@@ -91,6 +94,7 @@ const FOOD_PROFILE_DEFINITIONS = {
     defaultQuickAddValues: [150, 200, 250],
     labelKey: 'foodNamePlatinumAdultBeef',
     foodType: 'dry',
+    kcalPer100g: 367,
   },
   platinumAdultChicken: {
     key: 'platinumAdultChicken',
@@ -99,6 +103,7 @@ const FOOD_PROFILE_DEFINITIONS = {
     defaultQuickAddValues: [150, 200, 250],
     labelKey: 'foodNamePlatinumAdultChicken',
     foodType: 'dry',
+    kcalPer100g: 367,
   },
   platinumMenuAdultChicken: {
     key: 'platinumMenuAdultChicken',
@@ -107,6 +112,7 @@ const FOOD_PROFILE_DEFINITIONS = {
     defaultQuickAddValues: [150, 200, 250],
     labelKey: 'foodNamePlatinumMenuAdultChicken',
     foodType: 'wet',
+    kcalPer100g: 105,
   },
   platinumMenuAdultBeefChicken: {
     key: 'platinumMenuAdultBeefChicken',
@@ -115,6 +121,20 @@ const FOOD_PROFILE_DEFINITIONS = {
     defaultQuickAddValues: [150, 200, 250],
     labelKey: 'foodNamePlatinumMenuAdultBeefChicken',
     foodType: 'wet',
+    kcalPer100g: 105,
+  },
+};
+
+const FRESH_FOOD_DEFINITIONS = {
+  freshRice: {
+    labelKey: 'freshFoodRice',
+    kcalPer100g: 130,
+    defaultQuickAddValues: [25, 50, 75],
+  },
+  freshChicken: {
+    labelKey: 'freshFoodChicken',
+    kcalPer100g: 165,
+    defaultQuickAddValues: [25, 50, 75],
   },
 };
 
@@ -189,7 +209,7 @@ function normalizeFoodProfiles(rawProfiles) {
 }
 
 function getFoodDisplayName(foodKey) {
-  const definition = FOOD_PROFILE_DEFINITIONS[foodKey];
+  const definition = FOOD_PROFILE_DEFINITIONS[foodKey] || FRESH_FOOD_DEFINITIONS[foodKey];
   if (!definition) return foodKey;
   return t(definition.labelKey);
 }
@@ -534,7 +554,7 @@ function getActiveFoodProfileKeys() {
 function initializeFeedMixAmounts() {
   const nextMix = {};
   const activeKeys = getActiveFoodProfileKeys();
-  activeKeys.forEach((foodKey) => {
+  [...activeKeys, ...Object.keys(FRESH_FOOD_DEFINITIONS)].forEach((foodKey) => {
     const existingValue = Number(feedMixAmounts?.[foodKey]);
     nextMix[foodKey] = Number.isFinite(existingValue) && existingValue > 0 ? existingValue : 0;
   });
@@ -559,6 +579,18 @@ function getFoodRecommendedDailyGrams(foodKey) {
   return Number.isFinite(grams) && grams > 0 ? grams : null;
 }
 
+function getReferenceKcalPer100g() {
+  const referenceTarget = getFoodReferenceTarget();
+  return Number(referenceTarget?.kcalPer100g) > 0 ? Number(referenceTarget.kcalPer100g) : null;
+}
+
+function getFreshFoodCalories(foodKey, grams) {
+  const kcalPer100g = Number(FRESH_FOOD_DEFINITIONS[foodKey]?.kcalPer100g);
+  const amount = Number(grams);
+  if (!Number.isFinite(kcalPer100g) || kcalPer100g <= 0 || !Number.isFinite(amount) || amount <= 0) return 0;
+  return amount * kcalPer100g / 100;
+}
+
 function getAdjustedFoodRecommendedDailyGrams(foodKey) {
   const recommendationGrams = getFoodRecommendedDailyGrams(foodKey);
   if (!recommendationGrams) return null;
@@ -573,8 +605,13 @@ function getPendingFeedMixRawTotal() {
 }
 
 function getPendingFeedMixProgressShare() {
+  const referenceKcalPer100g = getReferenceKcalPer100g();
   return Object.entries(feedMixAmounts).reduce((sum, [foodKey, value]) => {
     const amount = Number(value);
+    if (FRESH_FOOD_DEFINITIONS[foodKey]) {
+      if (!referenceKcalPer100g || !Number.isFinite(amount) || amount <= 0) return sum;
+      return sum + getFreshFoodCalories(foodKey, amount) / referenceKcalPer100g / 100;
+    }
     const recommendationGrams = getFoodRecommendedDailyGrams(foodKey);
     if (!Number.isFinite(amount) || amount <= 0 || !recommendationGrams) return sum;
     return sum + amount / recommendationGrams;
@@ -597,7 +634,7 @@ function getFoodReferenceTarget() {
     const recommendation = getFoodRecommendationByKey(foodKey);
     const gramsPerDay = Number(recommendation?.gramsPerDay);
     if (!recommendation?.errorKey && Number.isFinite(gramsPerDay) && gramsPerDay > 0) {
-      return { foodKey, ...recommendation, gramsPerDay };
+      return { foodKey, ...recommendation, gramsPerDay, kcalPer100g: FOOD_PROFILE_DEFINITIONS[foodKey]?.kcalPer100g };
     }
   }
   return null;
@@ -767,7 +804,10 @@ function renderFeedFoodOptions() {
 
   const renderFoodRow = (foodKey) => {
     const profile = appSettings.foodProfiles?.[foodKey];
-    const quickAddValues = appSettings.quickAddEnabled ? (profile?.quickAddValues || []) : [];
+    const definition = FOOD_PROFILE_DEFINITIONS[foodKey] || FRESH_FOOD_DEFINITIONS[foodKey];
+    const quickAddValues = appSettings.quickAddEnabled
+      ? (profile?.quickAddValues || definition?.defaultQuickAddValues || [])
+      : [];
     const currentAmount = Math.max(0, Math.floor(Number(feedMixAmounts?.[foodKey] || 0)));
     const recommendationGrams = getAdjustedFoodRecommendedDailyGrams(foodKey);
     const chipsMarkup = quickAddValues
@@ -778,7 +818,7 @@ function renderFeedFoodOptions() {
       <div class="food-mix-row">
         <div class="food-mix-header">
           <span class="food-mix-name">${getFoodDisplayName(foodKey)}</span>
-          <span class="food-mix-factor">${recommendationGrams ? t('feedRecommendedBadge', { grams: recommendationGrams }) : t('feedRecommendedUnknown')}</span>
+          <span class="food-mix-factor">${recommendationGrams ? t('feedRecommendedBadge', { grams: recommendationGrams }) : definition?.kcalPer100g ? t('feedFreshBadge', { kcal: definition.kcalPer100g }) : t('feedRecommendedUnknown')}</span>
         </div>
         <div class="feed-input-row">
           <label class="feed-amount-label" for="feed-amount-${foodKey}">${t('feedAmountLabel')}</label>
@@ -794,6 +834,7 @@ function renderFeedFoodOptions() {
 
   const dryFoods = activeKeys.filter((k) => FOOD_PROFILE_DEFINITIONS[k]?.foodType === 'dry');
   const wetFoods = activeKeys.filter((k) => FOOD_PROFILE_DEFINITIONS[k]?.foodType === 'wet');
+  const freshFoods = Object.keys(FRESH_FOOD_DEFINITIONS);
 
   let html = '';
 
@@ -805,6 +846,10 @@ function renderFeedFoodOptions() {
     html += `<div class="food-section"><div class="food-section-label">${t('feedTypeWet')}</div>${wetFoods.map(renderFoodRow).join('')}</div>`;
   }
 
+  if (freshFoods.length) {
+    html += `<div class="food-section"><div class="food-section-label">${t('feedTypeFresh')}</div>${freshFoods.map(renderFoodRow).join('')}</div>`;
+  }
+
   optionsWrap.innerHTML = html;
   updateFeedPreviewStatus();
 }
@@ -814,6 +859,10 @@ function buildFeedNoteForMix(rawNote) {
     .map(([foodKey, amount]) => {
       const grams = Math.max(0, Math.floor(Number(amount) || 0));
       if (grams <= 0) return null;
+      if (FRESH_FOOD_DEFINITIONS[foodKey]) {
+        const kcal = Math.round(getFreshFoodCalories(foodKey, grams));
+        return `${grams}g ${t(FRESH_FOOD_DEFINITIONS[foodKey].labelKey)} (${kcal} kcal)`;
+      }
       const recommendationGrams = getFoodRecommendedDailyGrams(foodKey);
       if (!recommendationGrams) {
         return `${grams}g ${getFoodDisplayName(foodKey)}`;
@@ -978,6 +1027,10 @@ const TRANSLATIONS = {
     feedFoodOptionsEmpty: 'Aktiviere in den Einstellungen mindestens eine Futtersorte.',
     feedTypeDry: 'Trockenfutter',
     feedTypeWet: 'Nassfutter',
+    feedTypeFresh: 'Frisches Essen',
+    feedFreshBadge: '{kcal} kcal/100 g',
+    freshFoodRice: 'Gekochter Reis',
+    freshFoodChicken: 'Gekochte Hühnerbrust',
     feedCandyShareLabel: 'Candy-Anteil am Tagesbedarf',
     feedCandyShareHint: 'Candies: {candyPercent}% · normales Futter: {foodPercent}%',
     feedPreviewWithTarget: 'Nach dieser Fütterung: {projectedPercent}% ({projectedFed}/{target} g, Referenz: {referenceFood}).',
@@ -1217,6 +1270,10 @@ const TRANSLATIONS = {
     feedFoodOptionsEmpty: 'Enable at least one food in settings.',
     feedTypeDry: 'Dry food',
     feedTypeWet: 'Wet food',
+    feedTypeFresh: 'Fresh food',
+    feedFreshBadge: '{kcal} kcal/100 g',
+    freshFoodRice: 'Cooked rice',
+    freshFoodChicken: 'Cooked chicken breast',
     feedCandyShareLabel: 'Candy share of daily need',
     feedCandyShareHint: 'Candies: {candyPercent}% · regular food: {foodPercent}%',
     feedPreviewWithTarget: 'After this feeding: {projectedPercent}% ({projectedFed}/{target} g, reference: {referenceFood}).',
@@ -2276,7 +2333,13 @@ async function saveFeedEntry(amountG, note = '') {
   const normalizedAmountG = Math.max(0, Math.floor(Number(amountG) || 0));
   const result = await api('/api/feed', {
     method: 'POST',
-    body: JSON.stringify({ note, amount_g: normalizedAmountG }),
+    body: JSON.stringify({
+      note,
+      amount_g: normalizedAmountG,
+      ingredients: Object.entries(feedMixAmounts)
+        .map(([foodKey, amount]) => ({ foodKey, grams: Math.max(0, Math.floor(Number(amount) || 0)) }))
+        .filter((ingredient) => ingredient.grams > 0),
+    }),
   });
   return { id: result.id, amountG: normalizedAmountG };
 }
@@ -3364,7 +3427,7 @@ function bindActions() {
     const input = event.target.closest('.feed-mix-input');
     if (!input) return;
     const foodKey = String(input.dataset.foodKey || '');
-    if (!FOOD_PROFILE_DEFINITIONS[foodKey]) return;
+    if (!FOOD_PROFILE_DEFINITIONS[foodKey] && !FRESH_FOOD_DEFINITIONS[foodKey]) return;
     const amount = Number(input.value);
     feedMixAmounts[foodKey] = Number.isFinite(amount) && amount > 0 ? Math.floor(amount) : 0;
     updateFeedPreviewStatus();
@@ -3374,7 +3437,7 @@ function bindActions() {
     const chip = event.target.closest('button[data-food-key][data-gram]');
     if (!chip) return;
     const foodKey = String(chip.dataset.foodKey || '');
-    if (!FOOD_PROFILE_DEFINITIONS[foodKey]) return;
+    if (!FOOD_PROFILE_DEFINITIONS[foodKey] && !FRESH_FOOD_DEFINITIONS[foodKey]) return;
     const gramValue = Number(chip.dataset.gram);
     if (!Number.isFinite(gramValue) || gramValue <= 0) return;
 
