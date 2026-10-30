@@ -2280,6 +2280,7 @@ function renderFeedOpenStatus() {
 
   const scaleMax = Math.max(rangeMax * 1.1, target, 1);
   const progressPercent = Math.max(0, Math.min(100, Math.round((fed / target) * 100)));
+  const fedScalePercent = Math.max(0, Math.min(100, (fed / scaleMax) * 100));
   const targetPercent = Math.max(0, Math.min(100, (target / scaleMax) * 100));
   const rangeMinPercent = Math.max(0, Math.min(100, (rangeMin / scaleMax) * 100));
   const rangeMaxPercent = Math.max(0, Math.min(100, (rangeMax / scaleMax) * 100));
@@ -2300,7 +2301,7 @@ function renderFeedOpenStatus() {
     feedProgressWrapEl.style.display = 'grid';
   }
   if (feedProgressBarEl) {
-    feedProgressBarEl.style.width = `${progressPercent}%`;
+    feedProgressBarEl.style.width = `${fedScalePercent}%`;
   }
   if (feedProgressTextEl) {
     feedProgressTextEl.textContent = `${progressPercent}%`;
@@ -2309,7 +2310,7 @@ function renderFeedOpenStatus() {
     todayFeedProgressWrapEl.style.display = 'grid';
   }
   if (todayFeedProgressBarEl) {
-    todayFeedProgressBarEl.style.width = `${progressPercent}%`;
+    todayFeedProgressBarEl.style.width = `${fedScalePercent}%`;
   }
   if (todayFeedProgressTextEl) {
     todayFeedProgressTextEl.textContent = `${progressPercent}%`;
