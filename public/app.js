@@ -884,6 +884,9 @@ function renderFeedFoodOptions() {
     const freshRecommendationGrams = FRESH_FOOD_DEFINITIONS[foodKey]
       ? getFreshFoodRecommendedDailyGrams(foodKey)
       : null;
+    const freshKcalPer100g = FRESH_FOOD_DEFINITIONS[foodKey]
+      ? Number(appSettings.foodProfiles?.[foodKey]?.kcalPer100g ?? definition?.kcalPer100g)
+      : null;
     const chipsMarkup = quickAddValues
       .map((grams) => `<button type="button" class="chip-btn" data-food-key="${foodKey}" data-gram="${grams}">+${grams}g</button>`)
       .join('');
@@ -892,7 +895,7 @@ function renderFeedFoodOptions() {
       <div class="food-mix-row">
         <div class="food-mix-header">
           <span class="food-mix-name">${getFoodDisplayName(foodKey)}</span>
-          <span class="food-mix-factor">${recommendationGrams ? t('feedRecommendedBadge', { grams: recommendationGrams }) : freshRecommendationGrams ? t('feedFreshRecommendedBadge', { grams: freshRecommendationGrams }) : t('feedRecommendedUnknown')}</span>
+          <span class="food-mix-factor">${recommendationGrams ? t('feedRecommendedBadge', { grams: recommendationGrams }) : freshRecommendationGrams ? t('feedFreshRecommendedBadge', { grams: freshRecommendationGrams, kcal: freshKcalPer100g }) : t('feedRecommendedUnknown')}</span>
         </div>
         <div class="feed-input-row">
           <label class="feed-amount-label" for="feed-amount-${foodKey}">${t('feedAmountLabel')}</label>
@@ -1103,7 +1106,7 @@ const TRANSLATIONS = {
     feedTypeWet: 'Nassfutter',
     feedTypeFresh: 'Frisches Essen',
     feedFreshBadge: '{kcal} kcal/100 g',
-    feedFreshRecommendedBadge: 'Empfehlung: {grams} g/Tag',
+    feedFreshRecommendedBadge: 'Empfehlung: {grams} g/Tag ({kcal} kcal/100 g)',
     freshFoodRice: 'Gekochter Reis',
     freshFoodChicken: 'Gekochte Hühnerbrust',
     feedCandyShareLabel: 'Candy-Anteil am Tagesbedarf',
@@ -1354,7 +1357,7 @@ const TRANSLATIONS = {
     feedTypeWet: 'Wet food',
     feedTypeFresh: 'Fresh food',
     feedFreshBadge: '{kcal} kcal/100 g',
-    feedFreshRecommendedBadge: 'Recommended: {grams} g/day',
+    feedFreshRecommendedBadge: 'Recommended: {grams} g/day ({kcal} kcal/100 g)',
     freshFoodRice: 'Cooked rice',
     freshFoodChicken: 'Cooked chicken breast',
     feedCandyShareLabel: 'Candy share of daily need',
