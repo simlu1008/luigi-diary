@@ -172,8 +172,16 @@ function createDefaultFoodProfiles() {
       enabled: false,
       quickAddValues: [...FOOD_PROFILE_DEFINITIONS.platinumMenuAdultBeefChicken.defaultQuickAddValues],
     },
-    freshRice: { enabled: true, quickAddValues: [...FRESH_FOOD_DEFINITIONS.freshRice.defaultQuickAddValues] },
-    freshChicken: { enabled: true, quickAddValues: [...FRESH_FOOD_DEFINITIONS.freshChicken.defaultQuickAddValues] },
+    freshRice: {
+      enabled: true,
+      quickAddValues: [...FRESH_FOOD_DEFINITIONS.freshRice.defaultQuickAddValues],
+      kcalPer100g: FRESH_FOOD_DEFINITIONS.freshRice.kcalPer100g,
+    },
+    freshChicken: {
+      enabled: true,
+      quickAddValues: [...FRESH_FOOD_DEFINITIONS.freshChicken.defaultQuickAddValues],
+      kcalPer100g: FRESH_FOOD_DEFINITIONS.freshChicken.kcalPer100g,
+    },
   };
 }
 
@@ -208,6 +216,13 @@ function normalizeFoodProfiles(rawProfiles) {
     normalized[key] = {
       enabled: rawProfile?.enabled === true,
       quickAddValues: sanitizeQuickAddValues(rawProfile?.quickAddValues, definition.defaultQuickAddValues),
+      ...(FRESH_FOOD_DEFINITIONS[key]
+        ? {
+            kcalPer100g: Number.isFinite(Number(rawProfile?.kcalPer100g)) && Number(rawProfile.kcalPer100g) > 0
+              ? Number(rawProfile.kcalPer100g)
+              : FRESH_FOOD_DEFINITIONS[key].kcalPer100g,
+          }
+        : {}),
     };
   }
 
@@ -591,7 +606,7 @@ function getReferenceKcalPer100g() {
 }
 
 function getFreshFoodCalories(foodKey, grams) {
-  const kcalPer100g = Number(FRESH_FOOD_DEFINITIONS[foodKey]?.kcalPer100g);
+  const kcalPer100g = Number(appSettings.foodProfiles?.[foodKey]?.kcalPer100g ?? FRESH_FOOD_DEFINITIONS[foodKey]?.kcalPer100g);
   const amount = Number(grams);
   if (!Number.isFinite(kcalPer100g) || kcalPer100g <= 0 || !Number.isFinite(amount) || amount <= 0) return 0;
   return amount * kcalPer100g / 100;
@@ -1192,6 +1207,7 @@ const TRANSLATIONS = {
     settingsFoodMenuAdultBeefChickenEnabledLabel: 'PLATINUM Menu Adult Beef + Chicken wird aktuell gefüttert',
     settingsFoodFreshRiceEnabledLabel: 'Gekochter Reis wird aktuell gefüttert',
     settingsFoodFreshChickenEnabledLabel: 'Gekochte Hühnerbrust wird aktuell gefüttert',
+    settingsFoodFreshKcalLabel: 'Energie (kcal/100 g)',
     settingsFoodChip1Label: 'Quick Add 1 (g)',
     settingsFoodChip2Label: 'Quick Add 2 (g)',
     settingsFoodChip3Label: 'Quick Add 3 (g)',
@@ -1202,6 +1218,7 @@ const TRANSLATIONS = {
     settingsWeightInvalid: 'Bitte ein gültiges Gewicht eingeben (> 0).',
     settingsTargetWeightInvalid: 'Bitte ein gültiges Zielgewicht eingeben (> 0).',
     settingsFoodChipInvalid: 'Bitte für jede aktive Futtersorte drei gültige Quick-Add-Werte (> 0) eingeben.',
+    settingsFoodKcalInvalid: 'Bitte gültige kcal-Werte für Reis und Hühnerbrust eingeben.',
     foodSummaryPending: 'Menge offen',
     foodSummaryGrams: '{grams} g/Tag',
     foodMissingBirthDate: 'Bitte zuerst ein gültiges Geburtsdatum in den Einstellungen angeben.',
@@ -1436,6 +1453,7 @@ const TRANSLATIONS = {
     settingsFoodMenuAdultBeefChickenEnabledLabel: 'PLATINUM Menu Adult Beef + Chicken is currently fed',
     settingsFoodFreshRiceEnabledLabel: 'Cooked rice is currently fed',
     settingsFoodFreshChickenEnabledLabel: 'Cooked chicken breast is currently fed',
+    settingsFoodFreshKcalLabel: 'Energy (kcal/100 g)',
     settingsFoodChip1Label: 'Quick add 1 (g)',
     settingsFoodChip2Label: 'Quick add 2 (g)',
     settingsFoodChip3Label: 'Quick add 3 (g)',
@@ -1448,6 +1466,7 @@ const TRANSLATIONS = {
     settingsWeightInvalid: 'Please enter a valid weight (> 0).',
     settingsTargetWeightInvalid: 'Please enter a valid target weight (> 0).',
     settingsFoodChipInvalid: 'Please enter three valid quick-add values (> 0) for each active food type.',
+    settingsFoodKcalInvalid: 'Enter valid kcal values for rice and chicken breast.',
     foodSummaryPending: 'Amount pending',
     foodSummaryGrams: '{grams} g/day',
     foodMissingBirthDate: 'Please provide a valid birth date in settings first.',
@@ -1647,6 +1666,14 @@ function applyStaticTranslations() {
   setText('settings-food-menu-adult-beef-chicken-enabled-label', t('settingsFoodMenuAdultBeefChickenEnabledLabel'));
   setText('settings-food-fresh-rice-enabled-label', t('settingsFoodFreshRiceEnabledLabel'));
   setText('settings-food-fresh-chicken-enabled-label', t('settingsFoodFreshChickenEnabledLabel'));
+  setText('settings-food-fresh-rice-kcal-label', t('settingsFoodFreshKcalLabel'));
+  setText('settings-food-fresh-chicken-kcal-label', t('settingsFoodFreshKcalLabel'));
+  Object.entries(FOOD_PROFILE_DEFINITIONS).forEach(([foodKey, definition]) => {
+    const label = document.getElementById(`${definition.enabledInputId}-label`);
+    if (label && definition.kcalPer100g) {
+      label.textContent = `${t(definition.labelKey)} · ${definition.kcalPer100g} kcal/100 g`;
+    }
+  });
   setText('settings-food-young-chip-1-label', t('settingsFoodChip1Label'));
   setText('settings-food-young-chip-2-label', t('settingsFoodChip2Label'));
   setText('settings-food-young-chip-3-label', t('settingsFoodChip3Label'));
@@ -1958,10 +1985,12 @@ function applySettingsToForm() {
   const settingsFoodFreshRiceChip1 = document.getElementById('settings-food-fresh-rice-chip-1');
   const settingsFoodFreshRiceChip2 = document.getElementById('settings-food-fresh-rice-chip-2');
   const settingsFoodFreshRiceChip3 = document.getElementById('settings-food-fresh-rice-chip-3');
+  const settingsFoodFreshRiceKcal = document.getElementById('settings-food-fresh-rice-kcal');
   const settingsFoodFreshChickenEnabled = document.getElementById('settings-food-fresh-chicken-enabled');
   const settingsFoodFreshChickenChip1 = document.getElementById('settings-food-fresh-chicken-chip-1');
   const settingsFoodFreshChickenChip2 = document.getElementById('settings-food-fresh-chicken-chip-2');
   const settingsFoodFreshChickenChip3 = document.getElementById('settings-food-fresh-chicken-chip-3');
+  const settingsFoodFreshChickenKcal = document.getElementById('settings-food-fresh-chicken-kcal');
   const feedCandyShareInput = document.getElementById('feed-candy-share-percent');
 
   const youngProfile = appSettings.foodProfiles?.youngPackMini;
@@ -2013,10 +2042,12 @@ function applySettingsToForm() {
   if (settingsFoodFreshRiceChip1) settingsFoodFreshRiceChip1.value = String(freshRiceProfile?.quickAddValues?.[0] ?? 25);
   if (settingsFoodFreshRiceChip2) settingsFoodFreshRiceChip2.value = String(freshRiceProfile?.quickAddValues?.[1] ?? 50);
   if (settingsFoodFreshRiceChip3) settingsFoodFreshRiceChip3.value = String(freshRiceProfile?.quickAddValues?.[2] ?? 75);
+  if (settingsFoodFreshRiceKcal) settingsFoodFreshRiceKcal.value = String(freshRiceProfile?.kcalPer100g ?? FRESH_FOOD_DEFINITIONS.freshRice.kcalPer100g);
   if (settingsFoodFreshChickenEnabled) settingsFoodFreshChickenEnabled.checked = freshChickenProfile?.enabled === true;
   if (settingsFoodFreshChickenChip1) settingsFoodFreshChickenChip1.value = String(freshChickenProfile?.quickAddValues?.[0] ?? 25);
   if (settingsFoodFreshChickenChip2) settingsFoodFreshChickenChip2.value = String(freshChickenProfile?.quickAddValues?.[1] ?? 50);
   if (settingsFoodFreshChickenChip3) settingsFoodFreshChickenChip3.value = String(freshChickenProfile?.quickAddValues?.[2] ?? 75);
+  if (settingsFoodFreshChickenKcal) settingsFoodFreshChickenKcal.value = String(freshChickenProfile?.kcalPer100g ?? FRESH_FOOD_DEFINITIONS.freshChicken.kcalPer100g);
   if (feedCandyShareInput) feedCandyShareInput.value = String(getCandySharePercent());
   initializeFeedMixAmounts();
 
@@ -3434,7 +3465,8 @@ function bindActions() {
   const settingsFoodFreshRiceChip2 = document.getElementById('settings-food-fresh-rice-chip-2');
   const settingsFoodFreshRiceChip3 = document.getElementById('settings-food-fresh-rice-chip-3');
   const settingsFoodFreshChickenEnabled = document.getElementById('settings-food-fresh-chicken-enabled');
-  const settingsFoodFreshChickenChip1 = document.getElementById('settings-food-fresh-chicken-chip-1');
+  const settingsFoodFreshRiceKcal = document.getElementById('settings-food-fresh-rice-kcal');
+  const settingsFoodFreshChickenKcal = document.getElementById('settings-food-fresh-chicken-kcal');
   const settingsFoodFreshChickenChip2 = document.getElementById('settings-food-fresh-chicken-chip-2');
   const settingsFoodFreshChickenChip3 = document.getElementById('settings-food-fresh-chicken-chip-3');
   const eventsList = document.getElementById('events');
@@ -3658,6 +3690,8 @@ function bindActions() {
       Number(settingsFoodFreshChickenChip2?.value ?? NaN),
       Number(settingsFoodFreshChickenChip3?.value ?? NaN),
     ];
+    const nextFreshRiceKcal = Number(settingsFoodFreshRiceKcal?.value ?? NaN);
+    const nextFreshChickenKcal = Number(settingsFoodFreshChickenKcal?.value ?? NaN);
     const nextWalkRecordingEnabled = settingsWalkRecordingToggle?.checked !== false;
 
     if (nextBirthDate) {
@@ -3676,6 +3710,11 @@ function bindActions() {
 
     if (nextTargetWeight !== null && (!Number.isFinite(nextTargetWeight) || nextTargetWeight <= 0)) {
       if (settingsResultEl) settingsResultEl.textContent = t('settingsTargetWeightInvalid');
+      return;
+    }
+
+    if (!Number.isFinite(nextFreshRiceKcal) || nextFreshRiceKcal <= 0 || !Number.isFinite(nextFreshChickenKcal) || nextFreshChickenKcal <= 0) {
+      if (settingsResultEl) settingsResultEl.textContent = t('settingsFoodKcalInvalid');
       return;
     }
 
@@ -3744,12 +3783,14 @@ function bindActions() {
         quickAddValues: isValidChipSet(nextFreshRiceValues)
           ? nextFreshRiceValues.map((value) => Math.floor(value))
           : [...fallbackProfiles.freshRice.quickAddValues],
+        kcalPer100g: nextFreshRiceKcal,
       },
       freshChicken: {
         enabled: settingsFoodFreshChickenEnabled?.checked === true,
         quickAddValues: isValidChipSet(nextFreshChickenValues)
           ? nextFreshChickenValues.map((value) => Math.floor(value))
           : [...fallbackProfiles.freshChicken.quickAddValues],
+        kcalPer100g: nextFreshChickenKcal,
       },
     };
 
